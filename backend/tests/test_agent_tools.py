@@ -1,9 +1,10 @@
 """Tests for agent tools."""
 
-import pytest
-from unittest.mock import AsyncMock, MagicMock, patch
+from unittest.mock import AsyncMock, patch
 
-from agent.orders_agent import OrdersAgent, TOOLS, SYSTEM_PROMPT
+import pytest
+
+from agent.orders_agent import SYSTEM_PROMPT, TOOLS, OrdersAgent
 
 
 class TestOrdersAgent:
@@ -14,7 +15,9 @@ class TestOrdersAgent:
         """Create a mock MCP client."""
         client = AsyncMock()
         client.get_all_orders.return_value = [{"orderID": "ORD-001", "productName": "Widget"}]
-        client.get_orders_by_customer_id.return_value = [{"orderID": "ORD-001", "customerID": "CUST001"}]
+        client.get_orders_by_customer_id.return_value = [
+            {"orderID": "ORD-001", "customerID": "CUST001"}
+        ]
         client.create_order.return_value = {"orderID": "ORD-NEW", "status": "created"}
         return client
 
@@ -124,7 +127,7 @@ class TestOrdersAgent:
     @pytest.mark.asyncio
     async def test_execute_tool_create_order_auto_date(self, agent, mock_mcp_client):
         """Test create_order tool auto-generates date if not provided."""
-        result = await agent._execute_tool(
+        await agent._execute_tool(
             "create_order",
             {
                 "customer_id": "CUST001",
@@ -191,5 +194,7 @@ class TestToolDefinitions:
             required = tool["input_schema"].get("required", [])
             for param_name in required:
                 prop = tool["input_schema"]["properties"].get(param_name)
-                assert prop is not None, f"Required param {param_name} not in properties for {tool['name']}"
+                assert prop is not None, (
+                    f"Required param {param_name} not in properties for {tool['name']}"
+                )
                 assert "description" in prop, f"Missing description for {tool['name']}.{param_name}"

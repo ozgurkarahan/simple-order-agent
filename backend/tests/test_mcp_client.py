@@ -1,9 +1,9 @@
 """Tests for MCP client."""
 
-import pytest
-from unittest.mock import AsyncMock, patch, MagicMock
+from unittest.mock import AsyncMock, MagicMock, patch
 
 import httpx
+import pytest
 
 from mcp.client import MCPClient, MCPClientError
 
@@ -59,7 +59,7 @@ class TestMCPClient:
 
     def test_parse_sse_response_invalid_json(self, mcp_client):
         """Test SSE response parsing with invalid JSON."""
-        sse_response = 'event: message\ndata: not-json\n\n'
+        sse_response = "event: message\ndata: not-json\n\n"
         with pytest.raises(MCPClientError) as exc_info:
             mcp_client._parse_sse_response(sse_response)
         assert "Invalid JSON" in str(exc_info.value)
@@ -68,10 +68,10 @@ class TestMCPClient:
     async def test_initialize(self, mcp_client):
         """Test session initialization."""
         mock_response = MagicMock()
-        mock_response.text = '''event: message
+        mock_response.text = """event: message
 data: {"jsonrpc":"2.0","id":1,"result":{"protocolVersion":"2024-11-05","serverInfo":{"name":"test-server","version":"1.0.0"}}}
 
-'''
+"""
         mock_response.headers = {"mcp-session-id": "session-abc123"}
         mock_response.raise_for_status = MagicMock()
 
@@ -95,10 +95,10 @@ data: {"jsonrpc":"2.0","id":1,"result":{"protocolVersion":"2024-11-05","serverIn
 
         # Then mock tools/list
         tools_response = MagicMock()
-        tools_response.text = '''event: message
+        tools_response.text = """event: message
 data: {"jsonrpc":"2.0","id":2,"result":{"tools":[{"name":"get-all-orders","description":"Get all orders"}]}}
 
-'''
+"""
         tools_response.headers = {"mcp-session-id": "session-123"}
         tools_response.raise_for_status = MagicMock()
 
@@ -138,17 +138,17 @@ data: {"jsonrpc":"2.0","id":2,"result":{"tools":[{"name":"get-all-orders","descr
         mcp_client._initialized = True
 
         mock_response = MagicMock()
-        mock_response.text = '''event: message
+        mock_response.text = """event: message
 data: {"jsonrpc":"2.0","id":3,"result":{"content":[{"type":"text","text":"[{\\"orderID\\":\\"ORD001\\"}]"}]}}
 
-'''
+"""
         mock_response.headers = {}
         mock_response.raise_for_status = MagicMock()
 
         with patch.object(mcp_client._client, "post", new_callable=AsyncMock) as mock_post:
             mock_post.return_value = mock_response
 
-            result = await mcp_client.get_all_orders()
+            await mcp_client.get_all_orders()
 
             # Verify the call was made correctly
             call_args = mock_post.call_args
@@ -162,17 +162,17 @@ data: {"jsonrpc":"2.0","id":3,"result":{"content":[{"type":"text","text":"[{\\"o
         mcp_client._initialized = True
 
         mock_response = MagicMock()
-        mock_response.text = '''event: message
+        mock_response.text = """event: message
 data: {"jsonrpc":"2.0","id":3,"result":{"content":[{"type":"text","text":"[{\\"orderID\\":\\"ORD001\\"}]"}]}}
 
-'''
+"""
         mock_response.headers = {}
         mock_response.raise_for_status = MagicMock()
 
         with patch.object(mcp_client._client, "post", new_callable=AsyncMock) as mock_post:
             mock_post.return_value = mock_response
 
-            result = await mcp_client.get_orders_by_customer_id("CUST001")
+            await mcp_client.get_orders_by_customer_id("CUST001")
 
             # Verify the call was made correctly
             call_args = mock_post.call_args
@@ -187,17 +187,17 @@ data: {"jsonrpc":"2.0","id":3,"result":{"content":[{"type":"text","text":"[{\\"o
         mcp_client._initialized = True
 
         mock_response = MagicMock()
-        mock_response.text = '''event: message
+        mock_response.text = """event: message
 data: {"jsonrpc":"2.0","id":3,"result":{"content":[{"type":"text","text":"{\\"orderID\\":\\"ORD-NEW\\"}"}]}}
 
-'''
+"""
         mock_response.headers = {}
         mock_response.raise_for_status = MagicMock()
 
         with patch.object(mcp_client._client, "post", new_callable=AsyncMock) as mock_post:
             mock_post.return_value = mock_response
 
-            result = await mcp_client.create_order(
+            await mcp_client.create_order(
                 customer_id="CUST001",
                 customer_name="John Doe",
                 product_name="Widget",

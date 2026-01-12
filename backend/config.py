@@ -18,7 +18,9 @@ class Settings(BaseSettings):
     anthropic_api_key: str = ""
 
     # MCP Server Configuration
-    mcp_base_url: str = "https://agent-network-ingress-gw-0zaqgg.lr8qeg.deu-c1.cloudhub.io/orders-mcp/"
+    mcp_base_url: str = (
+        "https://agent-network-ingress-gw-0zaqgg.lr8qeg.deu-c1.cloudhub.io/orders-mcp/"
+    )
     mcp_client_id: str = ""
     mcp_client_secret: str = ""
 

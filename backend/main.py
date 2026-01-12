@@ -1,18 +1,18 @@
 """FastAPI application entry point for Orders Analytics Agent."""
 
 import logging
+from collections.abc import AsyncGenerator
 from contextlib import asynccontextmanager
-from typing import AsyncGenerator
 
 from fastapi import FastAPI, HTTPException
 from fastapi.middleware.cors import CORSMiddleware
 from fastapi.responses import StreamingResponse
 from pydantic import BaseModel
 
-from config import get_settings
+from a2a import TaskManager, a2a_router, get_agent_card
 from agent import OrdersAgent
+from config import get_settings
 from mcp import MCPClient
-from a2a import a2a_router, get_agent_card, TaskManager
 
 # Configure logging
 logging.basicConfig(
@@ -175,7 +175,7 @@ async def chat_sync(request: ChatRequest) -> dict:
         }
     except Exception as e:
         logger.error(f"Chat error: {e}")
-        raise HTTPException(status_code=500, detail=str(e))
+        raise HTTPException(status_code=500, detail=str(e)) from e
 
 
 if __name__ == "__main__":

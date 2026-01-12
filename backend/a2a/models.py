@@ -6,7 +6,6 @@ from typing import Any
 
 from pydantic import BaseModel, Field
 
-
 # ============================================================================
 # Agent Card Models
 # ============================================================================
@@ -61,12 +60,8 @@ class AgentCard(BaseModel):
     capabilities: AgentCapabilities
     skills: list[Skill]
     authentication: AuthConfig | None = None
-    default_input_modes: list[str] = Field(
-        default=["text"], alias="defaultInputModes"
-    )
-    default_output_modes: list[str] = Field(
-        default=["text"], alias="defaultOutputModes"
-    )
+    default_input_modes: list[str] = Field(default=["text"], alias="defaultInputModes")
+    default_output_modes: list[str] = Field(default=["text"], alias="defaultOutputModes")
 
 
 # ============================================================================

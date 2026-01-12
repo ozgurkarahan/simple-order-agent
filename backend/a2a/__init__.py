@@ -1,19 +1,19 @@
 """A2A protocol implementation module."""
 
+from .agent_card import get_agent_card
 from .models import (
-    AgentCard,
     AgentCapabilities,
+    AgentCard,
+    Artifact,
+    Message,
+    Part,
     Skill,
     Task,
     TaskState,
     TaskStatus,
-    Message,
-    Part,
-    Artifact,
 )
 from .router import router as a2a_router
 from .task_manager import TaskManager
-from .agent_card import get_agent_card
 
 __all__ = [
     "AgentCard",

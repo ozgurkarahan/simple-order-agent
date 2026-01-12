@@ -41,7 +41,9 @@ class TestToolSelectionEvals:
         eval_case = next(e for e in dataset["evals"] if e["id"] == "get_all_orders_basic")
         result = await eval_runner.run_single_eval(eval_case)
 
-        assert result.actual_tool == "get_all_orders", f"Expected get_all_orders, got {result.actual_tool}"
+        assert result.actual_tool == "get_all_orders", (
+            f"Expected get_all_orders, got {result.actual_tool}"
+        )
 
     @requires_api_key
     @pytest.mark.asyncio
@@ -94,7 +96,7 @@ class TestBatchEvals:
         )
 
         # Report results
-        print(f"\nTool Selection Results:")
+        print("\nTool Selection Results:")
         print(f"  Total: {summary.total}")
         print(f"  Passed: {summary.passed}")
         print(f"  Tool Accuracy: {summary.tool_accuracy:.1%}")
@@ -115,7 +117,7 @@ class TestDatasetValidity:
     def test_all_evals_have_required_fields(self, dataset):
         """Test that all evals have required fields."""
         for eval_case in dataset["evals"]:
-            assert "id" in eval_case, f"Eval missing id"
+            assert "id" in eval_case, "Eval missing id"
             assert "category" in eval_case, f"Eval {eval_case.get('id')} missing category"
             assert "input" in eval_case, f"Eval {eval_case.get('id')} missing input"
 
@@ -134,13 +136,15 @@ class TestDatasetValidity:
         """Test that categories are from allowed set."""
         valid_categories = {"tool_selection", "response_quality", "clarification", "error_handling"}
         for eval_case in dataset["evals"]:
-            assert eval_case["category"] in valid_categories, \
+            assert eval_case["category"] in valid_categories, (
                 f"Invalid category {eval_case['category']} in eval {eval_case['id']}"
+            )
 
     def test_expected_tools_are_valid(self, dataset):
         """Test that expected tools match actual agent tools."""
         valid_tools = {"get_all_orders", "get_orders_by_customer_id", "create_order"}
         for eval_case in dataset["evals"]:
             if "expected_tool" in eval_case:
-                assert eval_case["expected_tool"] in valid_tools, \
+                assert eval_case["expected_tool"] in valid_tools, (
                     f"Invalid expected_tool {eval_case['expected_tool']} in eval {eval_case['id']}"
+                )

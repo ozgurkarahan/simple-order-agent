@@ -1,9 +1,8 @@
 """Pytest configuration and fixtures."""
 
-import pytest
 from unittest.mock import AsyncMock, MagicMock
 
-from fastapi.testclient import TestClient
+import pytest
 
 
 @pytest.fixture
@@ -72,9 +71,7 @@ def mock_anthropic_client():
 
     # Create a mock response
     mock_response = MagicMock()
-    mock_response.content = [
-        MagicMock(type="text", text="Here are the orders you requested.")
-    ]
+    mock_response.content = [MagicMock(type="text", text="Here are the orders you requested.")]
     mock_response.stop_reason = "end_turn"
 
     client.messages.create = AsyncMock(return_value=mock_response)

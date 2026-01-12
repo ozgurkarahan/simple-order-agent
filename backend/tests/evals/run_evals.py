@@ -3,21 +3,20 @@
 import asyncio
 import json
 import logging
+import sys
 from dataclasses import dataclass, field
 from datetime import datetime
 from pathlib import Path
-from typing import Any
 
 import anthropic
+
+# Add parent directory to path for agent imports
+sys.path.insert(0, str(Path(__file__).parent.parent.parent))
+from agent.orders_agent import SYSTEM_PROMPT, TOOLS
 
 # Configure logging
 logging.basicConfig(level=logging.INFO)
 logger = logging.getLogger(__name__)
-
-# Import tool definitions from agent
-import sys
-sys.path.insert(0, str(Path(__file__).parent.parent.parent))
-from agent.orders_agent import TOOLS, SYSTEM_PROMPT
 
 
 @dataclass
@@ -106,6 +105,7 @@ class EvalRunner:
 
         try:
             import time
+
             start_time = time.time()
 
             # Call the model
@@ -241,15 +241,11 @@ class EvalRunner:
         failed = total - passed
 
         tool_correct = sum(
-            1 for r in results
-            if r.expected_tool and r.actual_tool == r.expected_tool
+            1 for r in results if r.expected_tool and r.actual_tool == r.expected_tool
         )
         tool_total = sum(1 for r in results if r.expected_tool)
 
-        param_correct = sum(
-            1 for r in results
-            if r.passed and r.expected_params
-        )
+        param_correct = sum(1 for r in results if r.passed and r.expected_params)
         param_total = sum(1 for r in results if r.expected_params)
 
         summary = EvalSummary(

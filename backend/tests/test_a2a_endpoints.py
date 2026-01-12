@@ -1,24 +1,21 @@
 """Tests for A2A protocol endpoints."""
 
-import pytest
-from datetime import datetime
-
+from a2a.agent_card import get_agent_card
 from a2a.models import (
-    AgentCard,
     AgentCapabilities,
+    AgentCard,
+    Artifact,
     AuthConfig,
     AuthType,
+    CreateTaskRequest,
+    Message,
+    Part,
     Skill,
     Task,
     TaskState,
     TaskStatus,
-    Message,
-    Part,
-    Artifact,
-    CreateTaskRequest,
     TaskStatusUpdate,
 )
-from a2a.agent_card import get_agent_card
 
 
 class TestAgentCard:

@@ -24,10 +24,13 @@ router = APIRouter(prefix="/a2a", tags=["A2A Protocol"])
 
 def get_task_manager(request: Request) -> "TaskManager":
     """Get the task manager from app state."""
-    task_manager = request.app.state.task_manager if hasattr(request.app.state, "task_manager") else None
+    task_manager = (
+        request.app.state.task_manager if hasattr(request.app.state, "task_manager") else None
+    )
     if task_manager is None:
         # Get from global in main.py
         from main import task_manager as global_task_manager
+
         return global_task_manager
     return task_manager
 
@@ -52,7 +55,7 @@ async def create_task(request: Request, body: CreateTaskRequest) -> Task:
 
     except Exception as e:
         logger.error(f"Failed to create task: {e}")
-        raise HTTPException(status_code=500, detail=str(e))
+        raise HTTPException(status_code=500, detail=str(e)) from e
 
 
 @router.get("/tasks/{task_id}", response_model=Task)

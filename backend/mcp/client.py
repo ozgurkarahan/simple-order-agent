@@ -87,13 +87,13 @@ class MCPClient:
                     return json.loads(data_str)
                 except json.JSONDecodeError as e:
                     logger.error(f"Failed to parse SSE data: {e}")
-                    raise MCPClientError(f"Invalid JSON in SSE response: {data_str}")
-        
+                    raise MCPClientError(f"Invalid JSON in SSE response: {data_str}") from e
+
         # If no data line found, try parsing the whole response as JSON
         try:
             return json.loads(response_text)
-        except json.JSONDecodeError:
-            raise MCPClientError(f"Could not parse response: {response_text[:200]}")
+        except json.JSONDecodeError as e:
+            raise MCPClientError(f"Could not parse response: {response_text[:200]}") from e
 
     async def _request(
         self,
@@ -129,32 +129,32 @@ class MCPClient:
                 headers=self._get_headers(),
                 json=payload,
             )
-            
+
             # Store session ID from response headers
             if "mcp-session-id" in response.headers:
                 self.session_id = response.headers["mcp-session-id"]
-            
+
             response.raise_for_status()
-            
+
             # Parse SSE response
             result = self._parse_sse_response(response.text)
-            
+
             # Check for JSON-RPC error
             if "error" in result:
                 error = result["error"]
                 raise MCPClientError(f"MCP error {error.get('code')}: {error.get('message')}")
-            
+
             return result.get("result", {})
 
         except httpx.HTTPStatusError as e:
             logger.error(f"MCP HTTP error: {e.response.status_code} - {e.response.text}")
             raise MCPClientError(
                 f"MCP server returned {e.response.status_code}: {e.response.text}"
-            )
+            ) from e
 
         except httpx.RequestError as e:
             logger.error(f"MCP request error: {e}")
-            raise MCPClientError(f"Failed to connect to MCP server: {e}")
+            raise MCPClientError(f"Failed to connect to MCP server: {e}") from e
 
     async def initialize(self) -> dict[str, Any]:
         """
@@ -177,11 +177,11 @@ class MCPClient:
                 },
             },
         )
-        
+
         self._initialized = True
         logger.info(f"MCP session initialized: {self.session_id}")
         logger.info(f"Server info: {result.get('serverInfo', {})}")
-        
+
         return result
 
     async def list_tools(self) -> list[dict[str, Any]]:
@@ -288,10 +288,13 @@ class MCPClient:
         Returns:
             Created order details with generated orderID
         """
-        return await self.call_tool("create-order", {
-            "customerID": customer_id,
-            "customerName": customer_name,
-            "productName": product_name,
-            "price": price,
-            "orderDate": order_date,
-        })
+        return await self.call_tool(
+            "create-order",
+            {
+                "customerID": customer_id,
+                "customerName": customer_name,
+                "productName": product_name,
+                "price": price,
+                "orderDate": order_date,
+            },
+        )

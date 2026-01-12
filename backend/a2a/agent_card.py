@@ -2,7 +2,7 @@
 
 from functools import lru_cache
 
-from .models import AgentCard, AgentCapabilities, AuthConfig, AuthType, Skill
+from .models import AgentCapabilities, AgentCard, AuthConfig, AuthType, Skill
 
 
 @lru_cache

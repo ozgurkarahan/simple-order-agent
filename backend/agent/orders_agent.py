@@ -2,8 +2,9 @@
 
 import json
 import logging
+from collections.abc import AsyncGenerator
 from datetime import datetime
-from typing import Any, AsyncGenerator
+from typing import Any
 
 import anthropic
 
@@ -160,7 +161,7 @@ class OrdersAgent:
             order_date = tool_input.get("order_date")
             if not order_date:
                 order_date = datetime.now().strftime("%Y-%m-%dT%H:%M:%S")
-            
+
             return await self.mcp_client.create_order(
                 customer_id=tool_input["customer_id"],
                 customer_name=tool_input["customer_name"],
@@ -216,11 +217,13 @@ class OrdersAgent:
                     # Notify about tool use
                     yield {
                         "type": "tool_use",
-                        "data": json.dumps({
-                            "type": "tool_use",
-                            "tool": block.name,
-                            "input": block.input,
-                        }),
+                        "data": json.dumps(
+                            {
+                                "type": "tool_use",
+                                "tool": block.name,
+                                "input": block.input,
+                            }
+                        ),
                     }
 
                     # Execute the tool
@@ -229,7 +232,9 @@ class OrdersAgent:
                         tool_result = {
                             "type": "tool_result",
                             "tool_use_id": block.id,
-                            "content": json.dumps(result) if not isinstance(result, str) else result,
+                            "content": json.dumps(result)
+                            if not isinstance(result, str)
+                            else result,
                         }
                     except Exception as e:
                         logger.error(f"Tool execution error: {e}")
@@ -243,10 +248,12 @@ class OrdersAgent:
                     # Notify about tool result
                     yield {
                         "type": "tool_result",
-                        "data": json.dumps({
-                            "type": "tool_result",
-                            "result": tool_result["content"],
-                        }),
+                        "data": json.dumps(
+                            {
+                                "type": "tool_result",
+                                "result": tool_result["content"],
+                            }
+                        ),
                     }
 
                     # Add assistant message and tool result to continue conversation

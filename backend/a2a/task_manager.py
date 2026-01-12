@@ -4,8 +4,8 @@ import asyncio
 import json
 import logging
 import uuid
-from datetime import datetime
-from typing import Any, AsyncGenerator, TYPE_CHECKING
+from collections.abc import AsyncGenerator
+from typing import TYPE_CHECKING, Any
 
 from .models import (
     Artifact,
@@ -108,10 +108,14 @@ class TaskManager:
         )
 
         # Notify streaming clients
-        await self._emit_event(task_id, "status", TaskStatusUpdate(
-            task_id=task_id,
-            status=task.status,
-        ))
+        await self._emit_event(
+            task_id,
+            "status",
+            TaskStatusUpdate(
+                task_id=task_id,
+                status=task.status,
+            ),
+        )
 
         return task
 
@@ -158,10 +162,14 @@ class TaskManager:
                 state=TaskState.WORKING,
                 message="Processing request",
             )
-            await self._emit_event(task_id, "status", TaskStatusUpdate(
-                task_id=task_id,
-                status=task.status,
-            ))
+            await self._emit_event(
+                task_id,
+                "status",
+                TaskStatusUpdate(
+                    task_id=task_id,
+                    status=task.status,
+                ),
+            )
 
             # Get the last user message
             user_message = ""
@@ -179,10 +187,14 @@ class TaskManager:
                     state=TaskState.FAILED,
                     message="No user message found",
                 )
-                await self._emit_event(task_id, "status", TaskStatusUpdate(
-                    task_id=task_id,
-                    status=task.status,
-                ))
+                await self._emit_event(
+                    task_id,
+                    "status",
+                    TaskStatusUpdate(
+                        task_id=task_id,
+                        status=task.status,
+                    ),
+                )
                 return
 
             # Process with the agent
@@ -192,31 +204,39 @@ class TaskManager:
                 event_data = json.loads(event["data"])
 
                 if event_data.get("type") == "text":
-                    response_parts.append(Part(
-                        type="text",
-                        text=event_data["content"],
-                    ))
+                    response_parts.append(
+                        Part(
+                            type="text",
+                            text=event_data["content"],
+                        )
+                    )
 
                     # Emit message event
-                    await self._emit_event(task_id, "message", {
-                        "taskId": task_id,
-                        "message": {
-                            "role": "agent",
-                            "parts": [{"type": "text", "text": event_data["content"]}],
+                    await self._emit_event(
+                        task_id,
+                        "message",
+                        {
+                            "taskId": task_id,
+                            "message": {
+                                "role": "agent",
+                                "parts": [{"type": "text", "text": event_data["content"]}],
+                            },
                         },
-                    })
+                    )
 
                 elif event_data.get("type") == "tool_result":
                     # Create an artifact for tool results
                     artifact = Artifact(
                         id=self._generate_artifact_id(),
-                        name=f"Tool Result",
+                        name="Tool Result",
                         description="Result from tool execution",
                         mime_type="application/json",
-                        parts=[Part(
-                            type="text",
-                            text=event_data.get("result", ""),
-                        )],
+                        parts=[
+                            Part(
+                                type="text",
+                                text=event_data.get("result", ""),
+                            )
+                        ],
                     )
 
                     if task.artifacts is None:
@@ -224,11 +244,15 @@ class TaskManager:
                     task.artifacts.append(artifact)
 
                     # Emit artifact event
-                    await self._emit_event(task_id, "artifact", TaskStatusUpdate(
-                        task_id=task_id,
-                        status=task.status,
-                        artifact=artifact,
-                    ))
+                    await self._emit_event(
+                        task_id,
+                        "artifact",
+                        TaskStatusUpdate(
+                            task_id=task_id,
+                            status=task.status,
+                            artifact=artifact,
+                        ),
+                    )
 
             # Add agent response to history
             if response_parts:
@@ -245,10 +269,14 @@ class TaskManager:
                 state=TaskState.COMPLETED,
                 message="Task completed successfully",
             )
-            await self._emit_event(task_id, "status", TaskStatusUpdate(
-                task_id=task_id,
-                status=task.status,
-            ))
+            await self._emit_event(
+                task_id,
+                "status",
+                TaskStatusUpdate(
+                    task_id=task_id,
+                    status=task.status,
+                ),
+            )
 
         except Exception as e:
             logger.error(f"Task processing error: {e}")
@@ -257,10 +285,14 @@ class TaskManager:
                 state=TaskState.FAILED,
                 message=f"Processing failed: {str(e)}",
             )
-            await self._emit_event(task_id, "status", TaskStatusUpdate(
-                task_id=task_id,
-                status=task.status,
-            ))
+            await self._emit_event(
+                task_id,
+                "status",
+                TaskStatusUpdate(
+                    task_id=task_id,
+                    status=task.status,
+                ),
+            )
 
         finally:
             self._processing_tasks.discard(task_id)
@@ -285,10 +317,12 @@ class TaskManager:
             else:
                 event_data = json.dumps(data)
 
-            await self.task_events[task_id].put({
-                "event": event_type,
-                "data": event_data,
-            })
+            await self.task_events[task_id].put(
+                {
+                    "event": event_type,
+                    "data": event_data,
+                }
+            )
 
     async def stream_task(self, task_id: str) -> AsyncGenerator[dict, None]:
         """
@@ -326,7 +360,7 @@ class TaskManager:
                 # Update our reference to task status
                 task = self.tasks[task_id]
 
-            except asyncio.TimeoutError:
+            except TimeoutError:
                 # Send keepalive
                 yield {
                     "event": "keepalive",
