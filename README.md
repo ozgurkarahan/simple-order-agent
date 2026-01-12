@@ -1,6 +1,11 @@
 # Orders Analytics Agent
 
-An AI-powered chat interface for querying and managing order data using the Claude Agent SDK, MCP protocol, and A2A compliance.
+A **learning project** to explore the integration of a MuleSoft MCP server with the Claude Agent SDK. This project serves as a hands-on sandbox for:
+
+- Testing MCP protocol implementation with MuleSoft CloudHub
+- Building and evaluating AI agents with Anthropic's Claude
+- Learning agent evaluation (evals) best practices
+- Experimenting with tool definitions and A2A protocol
 
 ## Features
 
@@ -9,6 +14,16 @@ An AI-powered chat interface for querying and managing order data using the Clau
 - **A2A Protocol Support**: Discoverable and callable by other AI agents
 - **MCP Integration**: Connects to external Orders MCP server
 - **Comprehensive Testing**: Unit tests and agent evals included
+
+## What You'll Learn
+
+| Topic | Description |
+|-------|-------------|
+| **MCP Protocol** | How to connect Claude to external APIs via Model Context Protocol |
+| **Agent Tools** | Defining tools, input schemas, and handling tool responses |
+| **Agent Evals** | Writing evaluation datasets to test tool selection accuracy |
+| **A2A Protocol** | Making your agent discoverable by other AI agents |
+| **Streaming** | Implementing SSE for real-time agent responses |
 
 ## Quick Start
 
@@ -93,16 +108,25 @@ curl -X POST http://localhost:8000/a2a/tasks \
   }'
 ```
 
-## Testing
+## Testing and Evals
 
-### Run Unit Tests
+This project includes a comprehensive testing setup for learning evaluation best practices.
+
+### Unit Tests
+
+Test individual components (MCP client, A2A endpoints, agent tools):
 
 ```bash
 cd backend
 pytest
 ```
 
-### Run Agent Evals
+### Agent Evals
+
+The eval framework tests agent behavior - tool selection, parameter accuracy, response quality:
+
+- **Dataset**: `backend/tests/evals/dataset.json` - Contains test cases with expected tools and parameters
+- **Runner**: `backend/tests/evals/run_evals.py` - Executes evals and calculates metrics
 
 ```bash
 cd backend
@@ -130,6 +154,12 @@ simple-order-agent/
 │   ├── mcp/            # MCP client implementation
 │   ├── a2a/            # A2A protocol implementation
 │   └── tests/          # Unit tests and evals
+│       ├── evals/      # Agent evaluation framework
+│       │   ├── dataset.json   # Eval test cases
+│       │   └── run_evals.py   # Eval runner
+│       ├── test_mcp_client.py
+│       ├── test_agent_tools.py
+│       └── test_a2a_endpoints.py
 └── frontend/
     ├── src/
     │   ├── app/        # Next.js pages
@@ -177,7 +207,7 @@ Supported skills:
                  │
                  ▼
 ┌─────────────────────────────────────────┐
-│         Orders MCP Server               │
+│     Orders MCP Server (MuleSoft)        │
 └─────────────────────────────────────────┘
 ```
 
