@@ -41,6 +41,9 @@ env/
 .env.local
 .env.*.local
 
+# Configuration files (may contain secrets)
+backend/data/config.json
+
 # Testing
 .coverage
 htmlcov/

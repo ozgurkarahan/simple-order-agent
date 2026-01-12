@@ -13,6 +13,7 @@ A **learning project** to explore the integration of a MuleSoft MCP server with 
 - **Real-time Streaming**: See responses as they're generated
 - **A2A Protocol Support**: Discoverable and callable by other AI agents
 - **MCP Integration**: Connects to external Orders MCP server
+- **Dynamic Configuration**: Configure A2A agents and MCP servers via Settings page
 - **Comprehensive Testing**: Unit tests and agent evals included
 
 ## What You'll Learn
@@ -108,6 +109,23 @@ curl -X POST http://localhost:8000/a2a/tasks \
   }'
 ```
 
+### Configuration API
+
+```bash
+# Get current configuration
+curl http://localhost:8000/api/config
+
+# Update A2A agent URL
+curl -X PUT http://localhost:8000/api/config/a2a \
+  -H "Content-Type: application/json" \
+  -d '{"url": "http://localhost:8000", "headers": {}}'
+
+# Update MCP server configuration
+curl -X PUT http://localhost:8000/api/config/mcp \
+  -H "Content-Type: application/json" \
+  -d '{"name": "orders", "url": "https://your-mcp-server.com/mcp/", "headers": {}}'
+```
+
 ## Testing and Evals
 
 This project includes a comprehensive testing setup for learning evaluation best practices.
@@ -153,16 +171,25 @@ simple-order-agent/
 │   ├── .mcp.json       # MCP server configuration for Claude Agent SDK
 │   ├── agent/          # Claude agent configuration
 │   ├── a2a/            # A2A protocol implementation
+│   ├── api/            # Configuration API
+│   │   ├── config_models.py   # Configuration Pydantic models
+│   │   ├── config_store.py    # JSON file persistence
+│   │   └── config_router.py   # FastAPI routes
+│   ├── data/           # Runtime data (gitignored)
+│   │   └── config.json # User configuration file
 │   └── tests/          # Unit tests and evals
 │       ├── evals/      # Agent evaluation framework
 │       │   ├── dataset.json   # Eval test cases
 │       │   └── run_evals.py   # Eval runner
 │       ├── test_agent_tools.py
-│       └── test_a2a_endpoints.py
+│       ├── test_a2a_endpoints.py
+│       └── test_config_api.py
 └── frontend/
     ├── src/
     │   ├── app/        # Next.js pages
-    │   ├── components/ # React components (Chat)
+    │   │   ├── page.tsx      # Chat page
+    │   │   └── settings/     # Settings page
+    │   ├── components/ # React components (Chat, UI)
     │   └── lib/        # Utilities and API client
     └── package.json
 ```

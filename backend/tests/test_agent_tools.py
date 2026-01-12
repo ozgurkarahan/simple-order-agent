@@ -4,7 +4,8 @@ from unittest.mock import MagicMock, patch
 
 import pytest
 
-from agent.orders_agent import SYSTEM_PROMPT, TOOLS, OrdersAgent
+from agent.orders_agent import SYSTEM_PROMPT, OrdersAgent
+from tests.conftest import TOOLS
 
 
 class TestOrdersAgent:
@@ -67,7 +68,7 @@ class TestOrdersAgent:
         assert options.model == "claude-sonnet-4-20250514"
         assert options.system_prompt == SYSTEM_PROMPT
         assert options.setting_sources == ["project"]
-        assert options.permission_mode == "auto"
+        assert options.permission_mode == "bypassPermissions"
         assert options.max_turns == 10
 
 

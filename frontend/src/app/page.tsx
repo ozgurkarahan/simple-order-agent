@@ -1,7 +1,8 @@
 "use client";
 
 import { useQuery } from "@tanstack/react-query";
-import { Sparkles, Zap, MessageSquare } from "lucide-react";
+import Link from "next/link";
+import { Sparkles, Zap, MessageSquare, Settings } from "lucide-react";
 import { Chat } from "@/components/Chat";
 import { fetchAgentCard } from "@/lib/api";
 
@@ -49,6 +50,13 @@ export default function Home() {
                 <span className="text-xs font-medium text-primary">Streaming</span>
               </div>
             )}
+            <Link
+              href="/settings"
+              className="p-2 text-muted-foreground hover:text-foreground transition-colors rounded-lg hover:bg-muted"
+              title="Settings"
+            >
+              <Settings className="w-5 h-5" />
+            </Link>
           </div>
         </div>
       </header>

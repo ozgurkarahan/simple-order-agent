@@ -1,9 +1,11 @@
 """Orders Analytics Agent using Claude Agent SDK with External MCP Server."""
 
+from __future__ import annotations
+
 import json
 import logging
 from collections.abc import AsyncGenerator
-from typing import Any
+from typing import Any, TYPE_CHECKING
 
 from claude_agent_sdk import (
     AssistantMessage,
@@ -11,6 +13,9 @@ from claude_agent_sdk import (
     ResultMessage,
     query,
 )
+
+if TYPE_CHECKING:
+    from api.config_models import MCPServerConfig
 
 logger = logging.getLogger(__name__)
 
@@ -41,64 +46,34 @@ For order creation:
 
 Be conversational but concise. Focus on delivering value through actionable insights."""
 
-# Tool definitions kept for backwards compatibility with tests
-TOOLS = [
-    {
-        "name": "get_all_orders",
-        "description": "Retrieve all customer orders from the system.",
-        "input_schema": {"type": "object", "properties": {}},
-    },
-    {
-        "name": "get_orders_by_customer_id",
-        "description": "Get a customer's complete order history by their customer ID.",
-        "input_schema": {
-            "type": "object",
-            "properties": {
-                "customer_id": {
-                    "type": "string",
-                    "description": "The unique identifier of the customer",
-                },
-            },
-            "required": ["customer_id"],
-        },
-    },
-    {
-        "name": "create_order",
-        "description": "Create a new order record in the system.",
-        "input_schema": {
-            "type": "object",
-            "properties": {
-                "customer_id": {"type": "string", "description": "Customer ID"},
-                "customer_name": {"type": "string", "description": "Customer name"},
-                "product_name": {"type": "string", "description": "Product name"},
-                "price": {"type": "number", "description": "Price"},
-                "order_date": {"type": "string", "description": "Order date ISO 8601"},
-            },
-            "required": ["customer_id", "customer_name", "product_name", "price", "order_date"],
-        },
-    },
-]
-
-
 class OrdersAgent:
     """
     Claude-powered agent for order analytics using External MCP Server.
 
-    Uses the Claude Agent SDK with .mcp.json configuration to connect
-    to the Orders MCP server automatically.
+    Uses the Claude Agent SDK with .mcp.json configuration or dynamic MCP config
+    to connect to the Orders MCP server.
     """
 
-    def __init__(self, model: str = "claude-sonnet-4-20250514"):
+    def __init__(
+        self, 
+        model: str = "claude-sonnet-4-20250514",
+        mcp_config: MCPServerConfig | None = None
+    ):
         """
         Initialize the Orders Agent.
 
         Args:
             model: Claude model to use
+            mcp_config: Optional MCP server configuration. If None, uses .mcp.json
         """
         self.model = model
+        self.mcp_config = mcp_config
         self.conversations: dict[str, list[dict]] = {}
 
-        logger.info(f"Orders Agent initialized with model: {model} using External MCP Server")
+        if mcp_config:
+            logger.info(f"Orders Agent initialized with model: {model} using MCP server: {mcp_config.name}")
+        else:
+            logger.info(f"Orders Agent initialized with model: {model} using .mcp.json config")
 
     def _get_conversation(self, conversation_id: str | None) -> list[dict]:
         """Get or create conversation history."""
@@ -109,14 +84,32 @@ class OrdersAgent:
         return self.conversations[conversation_id]
 
     def _build_options(self) -> ClaudeAgentOptions:
-        """Build ClaudeAgentOptions with external MCP server from .mcp.json."""
-        return ClaudeAgentOptions(
-            model=self.model,
-            system_prompt=SYSTEM_PROMPT,
-            setting_sources=["project"],  # Loads .mcp.json automatically
-            permission_mode="bypassPermissions",  # Auto-approve tool calls
-            max_turns=10,
-        )
+        """Build ClaudeAgentOptions with external MCP server configuration."""
+        if self.mcp_config:
+            # Use dynamic MCP configuration
+            mcp_servers = {
+                self.mcp_config.name: {
+                    "type": "http",
+                    "url": self.mcp_config.url,
+                    "headers": self.mcp_config.headers
+                }
+            }
+            return ClaudeAgentOptions(
+                model=self.model,
+                system_prompt=SYSTEM_PROMPT,
+                mcp_servers=mcp_servers,
+                permission_mode="bypassPermissions",
+                max_turns=10,
+            )
+        else:
+            # Fall back to .mcp.json configuration
+            return ClaudeAgentOptions(
+                model=self.model,
+                system_prompt=SYSTEM_PROMPT,
+                setting_sources=["project"],  # Loads .mcp.json automatically
+                permission_mode="bypassPermissions",
+                max_turns=10,
+            )
 
     async def chat(
         self,
