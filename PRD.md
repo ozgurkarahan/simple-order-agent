@@ -79,6 +79,60 @@ Accessing and analyzing order data typically requires:
 
 ---
 
+## Configuration Feature
+
+### Problem Statement
+
+Currently, the frontend is tightly coupled to the local Orders Agent backend. Users cannot:
+- Connect to different A2A-compliant agents without code changes
+- Dynamically switch between MCP server configurations
+- Test external A2A agents they are developing
+
+**Solution**: A configuration system that allows users to dynamically configure A2A agent connections and MCP servers through a dedicated settings page, with persistence in a JSON configuration file.
+
+### User Stories
+
+| ID | As a... | I want to... | So that... |
+|----|---------|--------------|------------|
+| C1 | Developer | Configure the A2A agent URL from the UI | I can test different A2A agents without modifying code |
+| C2 | Developer | Add custom headers to A2A connections | I can authenticate with external agents |
+| C3 | Developer | Configure MCP server URLs dynamically | I can switch between different data sources |
+| C4 | Developer | Add custom headers to MCP connections | I can authenticate with secured MCP servers |
+| C5 | User | See which agent/MCP server I'm connected to | I know which system I'm interacting with |
+| C6 | Developer | Persist my configuration across sessions | I don't have to reconfigure every time |
+
+### Configuration Features
+
+#### P0 (Must Have)
+
+| Feature | Description |
+|---------|-------------|
+| Settings Page | Dedicated `/settings` route for configuration management |
+| A2A Agent URL Config | Input field to set the A2A agent base URL |
+| A2A Custom Headers | Key-value input for optional authentication headers |
+| MCP Server URL Config | Input field to set the MCP server URL |
+| MCP Custom Headers | Key-value input for optional MCP authentication headers |
+| Configuration Persistence | Store configuration in JSON file |
+| Connection Status | Display current connection status in header |
+
+#### P1 (Should Have)
+
+| Feature | Description |
+|---------|-------------|
+| Agent Card Preview | Fetch and display agent card from configured A2A URL |
+| Connection Test | Button to test connectivity before saving |
+| MCP Tools Discovery | Display available tools from configured MCP server |
+
+#### P2 (Nice to Have)
+
+| Feature | Description |
+|---------|-------------|
+| Configuration Profiles | Save multiple named configurations |
+| Import/Export Config | Download/upload configuration as JSON |
+| Configuration History | Track recent configuration changes |
+
+---
+
 ## Success Metrics
 
 | Metric | Target |
@@ -88,6 +142,9 @@ Accessing and analyzing order data typically requires:
 | Task Completion Rate | >85% |
 | UI Response Time | <2s to first token |
 | A2A Compliance | Pass all protocol tests |
+| Config Save Success | 100% (valid configs) |
+| A2A Connection Success | >95% (valid URLs) |
+| MCP Hot-Reload Success | >99% |
 
 ---
 

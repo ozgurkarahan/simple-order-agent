@@ -46,6 +46,69 @@ export interface StreamEvent {
   };
 }
 
+// Configuration Types
+export interface A2AConfig {
+  url: string;
+  headers: Record<string, string>;
+  is_local: boolean;
+}
+
+export interface MCPServerConfig {
+  name: string;
+  url: string;
+  headers: Record<string, string>;
+  is_active: boolean;
+}
+
+export interface AppConfig {
+  a2a: A2AConfig;
+  mcp: MCPServerConfig;
+  updated_at?: string;
+}
+
+export interface A2AConfigUpdate {
+  url: string;
+  headers: Record<string, string>;
+}
+
+export interface MCPConfigUpdate {
+  name: string;
+  url: string;
+  headers: Record<string, string>;
+}
+
+export interface ConnectionTestRequest {
+  url: string;
+  headers: Record<string, string>;
+}
+
+export interface A2ATestResponse {
+  success: boolean;
+  agent_card?: {
+    name: string;
+    description?: string;
+    version?: string;
+  };
+  error?: string;
+}
+
+export interface MCPTestResponse {
+  success: boolean;
+  tools?: string[];
+  error?: string;
+}
+
+export interface ConfigUpdateResponse {
+  status: string;
+  connection_test?: string;
+  reload_required?: boolean;
+}
+
+export interface ConfigResetResponse {
+  status: string;
+  message: string;
+}
+
 /**
  * Fetch the agent card for A2A discovery.
  */
@@ -161,6 +224,92 @@ export async function checkHealth(): Promise<{
   const response = await fetch(`${API_BASE}/health`);
   if (!response.ok) {
     throw new Error("Health check failed");
+  }
+  return response.json();
+}
+
+// Configuration API Functions
+
+/**
+ * Fetch current configuration.
+ */
+export async function fetchConfig(): Promise<AppConfig> {
+  const response = await fetch(`${API_BASE}/api/config`);
+  if (!response.ok) {
+    throw new Error("Failed to fetch configuration");
+  }
+  return response.json();
+}
+
+/**
+ * Update A2A agent configuration.
+ */
+export async function updateA2AConfig(config: A2AConfigUpdate): Promise<ConfigUpdateResponse> {
+  const response = await fetch(`${API_BASE}/api/config/a2a`, {
+    method: "PUT",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify(config),
+  });
+  if (!response.ok) {
+    throw new Error("Failed to update A2A configuration");
+  }
+  return response.json();
+}
+
+/**
+ * Update MCP server configuration.
+ */
+export async function updateMCPConfig(config: MCPConfigUpdate): Promise<ConfigUpdateResponse> {
+  const response = await fetch(`${API_BASE}/api/config/mcp`, {
+    method: "PUT",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify(config),
+  });
+  if (!response.ok) {
+    throw new Error("Failed to update MCP configuration");
+  }
+  return response.json();
+}
+
+/**
+ * Test A2A agent connection.
+ */
+export async function testA2AConnection(config: ConnectionTestRequest): Promise<A2ATestResponse> {
+  const response = await fetch(`${API_BASE}/api/config/a2a/test`, {
+    method: "POST",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify(config),
+  });
+  if (!response.ok) {
+    throw new Error("Failed to test A2A connection");
+  }
+  return response.json();
+}
+
+/**
+ * Test MCP server connection.
+ */
+export async function testMCPConnection(config: ConnectionTestRequest): Promise<MCPTestResponse> {
+  const response = await fetch(`${API_BASE}/api/config/mcp/test`, {
+    method: "POST",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify(config),
+  });
+  if (!response.ok) {
+    throw new Error("Failed to test MCP connection");
+  }
+  return response.json();
+}
+
+/**
+ * Reset configuration to defaults.
+ */
+export async function resetConfig(): Promise<ConfigResetResponse> {
+  const response = await fetch(`${API_BASE}/api/config/reset`, {
+    method: "POST",
+  });
+  if (!response.ok) {
+    throw new Error("Failed to reset configuration");
   }
   return response.json();
 }

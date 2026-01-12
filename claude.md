@@ -44,12 +44,15 @@ This is a test project for the Claude Agent SDK that connects to an Orders MCP s
 - `agent/orders_agent.py` - Claude agent configuration with MCP tools
 - `.mcp.json` - MCP server configuration for Claude Agent SDK
 - `a2a/` - A2A protocol implementation (models, router, task manager)
+- `api/` - Configuration API (config_models.py, config_store.py, config_router.py)
+- `data/config.json` - Runtime configuration file (gitignored)
 - `tests/` - Unit tests and agent evals
 
 ### Frontend (`/frontend`)
 
 - Next.js 14 application with App Router
-- Single-page chat interface for natural language interaction
+- Chat interface (`/`) for natural language interaction
+- Settings page (`/settings`) for A2A and MCP configuration
 - Real-time streaming responses
 - Quick action buttons for common queries
 
@@ -108,3 +111,9 @@ Note: MCP server URL is configured in `backend/.mcp.json`
 - Simplified UI to chat-only interface (removed Analytics and Orders table views)
 - Full-screen conversational experience with agent status header
 - Quick action buttons: "Show all orders", "Search customer", "Revenue summary", "Create order"
+- **Added Configuration Feature**: Settings page for dynamic A2A and MCP configuration
+  - Configure A2A agent URLs and custom headers
+  - Configure MCP server URLs and authentication headers
+  - Test connections before saving
+  - Hot-reload agent with new MCP settings (no restart required)
+  - JSON file persistence (`backend/data/config.json`)

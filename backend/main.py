@@ -17,6 +17,8 @@ from pydantic import BaseModel
 
 from a2a import TaskManager, a2a_router, get_agent_card
 from agent import OrdersAgent
+from api import config_router, get_config_store
+from api.config_router import set_reload_agent_callback
 from config import get_settings
 
 # Configure logging
@@ -31,6 +33,26 @@ orders_agent: OrdersAgent | None = None
 task_manager: TaskManager | None = None
 
 
+async def reload_agent() -> None:
+    """Reload the Orders Agent with new MCP configuration."""
+    global orders_agent, task_manager
+    
+    logger.info("Reloading Orders Agent with new configuration...")
+    
+    # Get current MCP config from store
+    config_store = get_config_store()
+    config = config_store.load_config()
+    
+    # Create new agent with updated MCP config
+    orders_agent = OrdersAgent(mcp_config=config.mcp)
+    
+    # Update task manager
+    if task_manager:
+        task_manager.agent = orders_agent
+    
+    logger.info("Orders Agent reloaded successfully")
+
+
 @asynccontextmanager
 async def lifespan(app: FastAPI) -> AsyncGenerator[None, None]:
     """Application lifespan manager for startup/shutdown events."""
@@ -38,8 +60,15 @@ async def lifespan(app: FastAPI) -> AsyncGenerator[None, None]:
 
     logger.info("Starting Orders Analytics Agent...")
 
-    # Initialize the Orders Agent (uses .mcp.json for MCP server config)
-    orders_agent = OrdersAgent()
+    # Set up the reload callback for config changes
+    set_reload_agent_callback(reload_agent)
+
+    # Load saved configuration or use defaults
+    config_store = get_config_store()
+    config = config_store.load_config()
+
+    # Initialize the Orders Agent with MCP config
+    orders_agent = OrdersAgent(mcp_config=config.mcp)
 
     # Initialize Task Manager for A2A
     task_manager = TaskManager(agent=orders_agent)
@@ -70,8 +99,9 @@ app.add_middleware(
     allow_headers=["*"],
 )
 
-# Include A2A router
+# Include routers
 app.include_router(a2a_router)
+app.include_router(config_router)
 
 
 # Request/Response models

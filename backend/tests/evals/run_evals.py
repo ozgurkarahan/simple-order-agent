@@ -12,7 +12,8 @@ import anthropic
 
 # Add parent directory to path for agent imports
 sys.path.insert(0, str(Path(__file__).parent.parent.parent))
-from agent.orders_agent import SYSTEM_PROMPT, TOOLS
+from agent.orders_agent import SYSTEM_PROMPT
+from tests.conftest import TOOLS
 
 # Configure logging
 logging.basicConfig(level=logging.INFO)

@@ -7,37 +7,48 @@
 ```
 ┌─────────────────────────────────────────────────────────────────┐
 │                      FRONTEND (Next.js)                         │
-│  ┌───────────────────────────────────────────────────────────┐  │
-│  │                    Chat Component                          │  │
-│  │  ┌─────────────┐  ┌─────────────┐  ┌─────────────────┐    │  │
-│  │  │ MessageList │  │ QuickActions│  │   InputArea     │    │  │
-│  │  └─────────────┘  └─────────────┘  └─────────────────┘    │  │
-│  └───────────────────────────┬───────────────────────────────┘  │
-│                              │                                   │
-│                       ┌──────▼──────┐                           │
-│                       │   API Lib   │                           │
-│                       └──────┬──────┘                           │
-└──────────────────────────────┼──────────────────────────────────┘
-                               │ HTTP/SSE
-┌──────────────────────────────┼──────────────────────────────────┐
-│                      BACKEND (FastAPI)                          │
-│  ┌─────────────────┐  ┌──────┴──────┐  ┌───────────────────┐   │
-│  │  /api/chat      │  │ /a2a/tasks  │  │ /.well-known/     │   │
-│  │  (Chat API)     │  │ (A2A Tasks) │  │  agent.json       │   │
-│  └────────┬────────┘  └──────┬──────┘  └─────────┬─────────┘   │
-│           └──────────────────┼───────────────────┘             │
-│                              │                                  │
-│                    ┌─────────▼─────────┐                       │
-│                    │   Orders Agent    │                       │
-│                    │ (Claude SDK +     │                       │
-│                    │  .mcp.json)       │                       │
-│                    └─────────┬─────────┘                       │
-└──────────────────────────────┼──────────────────────────────────┘
-                               │ HTTPS
-                    ┌──────────▼──────────┐
-                    │  Orders MCP Server  │
-                    │    (CloudHub)       │
-                    └─────────────────────┘
+│  ┌────────────────────────────┐  ┌────────────────────────────┐ │
+│  │       Chat Page (/)        │  │    Settings Page (/settings)│ │
+│  │  ┌─────────────┐           │  │  ┌─────────────────────┐   │ │
+│  │  │ MessageList │           │  │  │  A2A Config Form    │   │ │
+│  │  ├─────────────┤           │  │  │  - URL              │   │ │
+│  │  │ QuickActions│           │  │  │  - Headers          │   │ │
+│  │  ├─────────────┤           │  │  ├─────────────────────┤   │ │
+│  │  │ InputArea   │           │  │  │  MCP Config Form    │   │ │
+│  │  └─────────────┘           │  │  │  - URL              │   │ │
+│  └────────────────────────────┘  │  │  - Headers          │   │ │
+│                                   │  └─────────────────────┘   │ │
+│                                   └────────────────────────────┘ │
+│                       ┌──────────────┐                           │
+│                       │   API Lib    │                           │
+│                       └──────┬───────┘                           │
+└──────────────────────────────┼───────────────────────────────────┘
+                               │ HTTP/SSE + A2A Protocol
+         ┌─────────────────────┼─────────────────────┐
+         │                     │                     │
+         ▼                     ▼                     ▼
+┌─────────────────┐  ┌─────────────────┐  ┌─────────────────────┐
+│ Local Backend   │  │ External A2A   │  │  Other A2A Agents   │
+│ (FastAPI)       │  │ Agent          │  │                     │
+│ ┌─────────────┐ │  └─────────────────┘  └─────────────────────┘
+│ │/api/config  │ │
+│ │ (Config API)│ │
+│ ├─────────────┤ │
+│ │ /a2a/tasks  │ │
+│ ├─────────────┤ │
+│ │ Orders Agent│ │
+│ └──────┬──────┘ │
+│        │        │
+│ ┌──────▼──────┐ │
+│ │ config.json   │ │
+│ │ (Config)    │ │
+│ └─────────────┘ │
+└────────┬────────┘
+         │ HTTPS (Configurable)
+         ▼
+┌─────────────────────────────────────────┐
+│  MCP Server (Orders or Configured)       │
+└─────────────────────────────────────────┘
 ```
 
 ---
@@ -109,6 +120,65 @@ GET /a2a/tasks/{task_id}/stream
 Response: SSE stream of TaskStatusUpdate events
 ```
 
+##### Configuration API
+
+```
+GET /api/config
+Response: Current configuration
+{
+  "a2a": {
+    "url": "http://localhost:8000",
+    "headers": {"Authorization": "Bearer xxx"},
+    "is_local": true
+  },
+  "mcp": {
+    "name": "orders",
+    "url": "https://...",
+    "headers": {"client_id": "xxx"},
+    "is_active": true
+  }
+}
+
+PUT /api/config/a2a
+Request:
+{
+  "url": "https://external-agent.example.com",
+  "headers": {
+    "Authorization": "Bearer token123"
+  }
+}
+Response: { "status": "saved", "connection_test": "success" }
+
+PUT /api/config/mcp
+Request:
+{
+  "name": "custom-mcp",
+  "url": "https://my-mcp-server.com/mcp/",
+  "headers": {
+    "client_id": "my-client",
+    "client_secret": "my-secret"
+  }
+}
+Response: { "status": "saved", "reload_required": false }
+
+POST /api/config/a2a/test
+Request: { "url": "https://...", "headers": {...} }
+Response: {
+  "success": true,
+  "agent_card": { "name": "...", "description": "...", ... }
+}
+
+POST /api/config/mcp/test
+Request: { "url": "https://...", "headers": {...} }
+Response: {
+  "success": true,
+  "tools": ["tool1", "tool2", ...]
+}
+
+POST /api/config/reset
+Response: { "status": "reset", "message": "Configuration reset to defaults" }
+```
+
 #### 2.3 Data Models
 
 ##### Agent Card (A2A)
@@ -142,7 +212,65 @@ class Task(BaseModel):
     history: list[Message] | None
 ```
 
-#### 2.4 MCP Configuration
+##### Configuration Models
+
+```python
+class A2AConfig(BaseModel):
+    """A2A agent connection configuration."""
+    url: str = "http://localhost:8000"
+    headers: dict[str, str] = {}
+    is_local: bool = True  # True if pointing to local backend
+
+class MCPServerConfig(BaseModel):
+    """MCP server configuration."""
+    name: str
+    url: str
+    headers: dict[str, str] = {}
+    is_active: bool = True
+
+class AppConfig(BaseModel):
+    """Complete application configuration."""
+    # No ID needed - single file
+    a2a: A2AConfig
+    mcp: MCPServerConfig
+    updated_at: datetime
+```
+
+#### 2.4 Configuration File
+
+The configuration is persisted in a JSON file for simplicity and human readability.
+
+##### JSON File Structure
+
+```json
+{
+  "a2a": {
+    "url": "http://localhost:8000",
+    "headers": {},
+    "is_local": true
+  },
+  "mcp": {
+    "name": "orders",
+    "url": "https://agent-network-ingress-gw-0zaqgg.lr8qeg.deu-c1.cloudhub.io/orders-mcp/",
+    "headers": {
+      "client_id": "xxx",
+      "client_secret": "xxx"
+    },
+    "is_active": true
+  },
+  "updated_at": "2025-01-12T10:00:00Z"
+}
+```
+
+##### File Location
+
+- **File**: `backend/data/config.json`
+- **Creation**: Auto-created on first save with defaults
+- **Gitignore**: File is gitignored (contains sensitive headers)
+
+#### 2.5 MCP Configuration
+
+##### Static Configuration (Default)
 
 The Claude Agent SDK connects to the external MCP server using `.mcp.json` configuration:
 
@@ -164,6 +292,42 @@ The Claude Agent SDK connects to the external MCP server using `.mcp.json` confi
 - **Transport**: HTTP with SSE for streaming (handled by SDK)
 - **Authentication**: Custom headers from environment variables
 - **Configuration**: `backend/.mcp.json`
+
+##### Dynamic Configuration (New)
+
+When users configure MCP servers through the Settings page:
+
+1. **Configuration Saved**: New MCP URL and headers stored in JSON config file
+2. **Agent Reload**: The Orders Agent is re-initialized with new MCP config
+3. **Hot Swap**: No server restart required; agent instance replaced in memory
+
+```python
+# Dynamic MCP configuration flow
+async def update_mcp_config(config: MCPServerConfig) -> None:
+    # 1. Save to config file
+    config_store.save_mcp_config(config)
+    
+    # 2. Rebuild MCP configuration dict
+    mcp_config = {
+        "mcpServers": {
+            config.name: {
+                "type": "http",
+                "url": config.url,
+                "headers": config.headers
+            }
+        }
+    }
+    
+    # 3. Re-initialize agent with new config
+    global orders_agent
+    orders_agent = await create_agent_with_mcp(mcp_config)
+```
+
+##### Configuration Priority
+
+1. **JSON config file** (if exists) - Takes precedence
+2. **`.mcp.json` file** - Default fallback
+3. **Environment variables** - For sensitive headers
 
 ##### Available Tools
 
@@ -191,6 +355,7 @@ The Claude Agent SDK connects to the external MCP server using `.mcp.json` confi
 
 ```
 /                    - Full-screen chat interface
+/settings            - Configuration page
 ```
 
 #### 3.3 Component Hierarchy
@@ -198,23 +363,115 @@ The Claude Agent SDK connects to the external MCP server using `.mcp.json` confi
 ```
 Layout
 ├── Header
-│   ├── AgentInfo (name, status)
-│   └── StatusIndicators (online, streaming)
-└── Chat
-    ├── MessageList
-    │   ├── UserMessage
-    │   └── AgentMessage (with tool indicators)
-    ├── QuickActions (4 preset buttons)
-    └── InputArea
-        ├── TextArea
-        └── SendButton
+│   ├── AgentInfo (name, status, connection indicator)
+│   ├── StatusIndicators (online, streaming)
+│   └── SettingsLink (gear icon → /settings)
+├── Chat (/)
+│   ├── MessageList
+│   │   ├── UserMessage
+│   │   └── AgentMessage (with tool indicators)
+│   ├── QuickActions (4 preset buttons)
+│   └── InputArea
+│       ├── TextArea
+│       └── SendButton
+└── Settings (/settings)
+    ├── SettingsHeader
+    │   ├── BackLink (← Back to Chat)
+    │   └── Title
+    ├── A2AConfigSection
+    │   ├── URLInput (with validation)
+    │   ├── HeadersEditor (key-value pairs)
+    │   ├── TestConnectionButton
+    │   └── AgentCardPreview (if connected)
+    ├── MCPConfigSection
+    │   ├── ServerNameInput
+    │   ├── URLInput (with validation)
+    │   ├── HeadersEditor (key-value pairs)
+    │   ├── TestConnectionButton
+    │   └── ToolsList (if connected)
+    └── ActionButtons
+        ├── SaveButton
+        └── ResetToDefaultsButton
 ```
 
-#### 3.4 State Management
+#### 3.4 Settings Page Specification
+
+##### URL: `/settings`
+
+##### Layout
+
+```
+┌─────────────────────────────────────────────────────────────┐
+│  ← Back to Chat                        Configuration        │
+├─────────────────────────────────────────────────────────────┤
+│                                                             │
+│  ┌─────────────────────────────────────────────────────┐   │
+│  │  A2A Agent Connection                               │   │
+│  │  ────────────────────────────────────────────────── │   │
+│  │  Agent URL:  [http://localhost:8000_____________]   │   │
+│  │                                                     │   │
+│  │  Custom Headers (optional):                         │   │
+│  │  ┌──────────────┬─────────────────────┬────┐       │   │
+│  │  │ Key          │ Value               │ ✕  │       │   │
+│  │  ├──────────────┼─────────────────────┼────┤       │   │
+│  │  │ Authorization│ Bearer xxx          │ ✕  │       │   │
+│  │  └──────────────┴─────────────────────┴────┘       │   │
+│  │  [+ Add Header]                                     │   │
+│  │                                                     │   │
+│  │  [Test Connection]  ✓ Connected: Orders Agent v1.0 │   │
+│  └─────────────────────────────────────────────────────┘   │
+│                                                             │
+│  ┌─────────────────────────────────────────────────────┐   │
+│  │  MCP Server Configuration                           │   │
+│  │  ────────────────────────────────────────────────── │   │
+│  │  Server Name: [orders________________________]      │   │
+│  │  Server URL:  [https://...cloudhub.io/orders-mcp/]  │   │
+│  │                                                     │   │
+│  │  Custom Headers (optional):                         │   │
+│  │  ┌──────────────┬─────────────────────┬────┐       │   │
+│  │  │ client_id    │ abc123              │ ✕  │       │   │
+│  │  ├──────────────┼─────────────────────┼────┤       │   │
+│  │  │ client_secret│ ••••••••            │ ✕  │       │   │
+│  │  └──────────────┴─────────────────────┴────┘       │   │
+│  │  [+ Add Header]                                     │   │
+│  │                                                     │   │
+│  │  [Test Connection]  ✓ 3 tools available            │   │
+│  └─────────────────────────────────────────────────────┘   │
+│                                                             │
+│         [Reset to Defaults]        [Save Configuration]    │
+│                                                             │
+└─────────────────────────────────────────────────────────────┘
+```
+
+##### Header Examples (UI Helper Text)
+
+Display examples to help users understand common header patterns:
+
+**A2A Headers Examples:**
+- `Authorization: Bearer <token>` - Bearer token auth
+- `X-API-Key: <key>` - API key auth
+
+**MCP Headers Examples:**
+- `client_id: <id>` - MuleSoft client ID
+- `client_secret: <secret>` - MuleSoft client secret
+- `Authorization: Basic <base64>` - Basic auth
+
+#### 3.5 State Management
 
 - **Server State**: React Query for API calls with caching
 - **UI State**: React useState for local state
 - **Chat State**: Conversation history in React state
+- **Config State**: React Query for config CRUD with optimistic updates
+
+##### Configuration State Flow
+
+```
+1. Page Load → GET /api/config → Populate form
+2. User Edits → Local state updates (no API call)
+3. Test Connection → POST /api/config/a2a/test or /mcp/test
+4. Save → PUT /api/config/a2a and/or PUT /api/config/mcp
+5. Success → Invalidate queries, redirect to chat
+```
 
 ---
 
@@ -228,6 +485,9 @@ Layout
 | A2A Models | Schema validation, serialization |
 | A2A Router | Endpoint behavior, status codes |
 | Task Manager | State transitions, streaming |
+| Config API | CRUD operations, validation, defaults |
+| Config Store | JSON file read/write, default values |
+| Connection Tests | A2A/MCP test endpoints, timeout handling |
 
 #### 4.2 Agent Evals
 
@@ -299,6 +559,16 @@ jobs:
 | CORS | Restricted to frontend origin in production |
 | Input Validation | Pydantic models for all inputs |
 | Rate Limiting | Consider adding for production use |
+| Config Headers | Stored encrypted in database (sensitive values) |
+| URL Validation | Validate URL format before saving |
+| Connection Test | Timeout limits on test connections (5s max) |
+
+##### Configuration Security Notes
+
+1. **Header Storage**: Sensitive headers (secrets, tokens) should be masked in API responses
+2. **File Security**: Config file permissions restricted to application user
+3. **URL Allowlist**: Consider optional allowlist for external A2A/MCP URLs in production
+4. **Audit Log**: Log configuration changes with timestamps
 
 ---
 
@@ -310,3 +580,7 @@ jobs:
 | MCP Server Error | 502 | `{"error": "MCP server unavailable", "details": "..."}` |
 | Agent Error | 500 | `{"error": "Agent processing failed", "details": "..."}` |
 | A2A Task Not Found | 404 | `{"error": "Task not found", "task_id": "..."}` |
+| Config Not Found | 404 | `{"error": "Configuration not found"}` |
+| Connection Test Failed | 400 | `{"error": "Connection failed", "details": "timeout/unreachable/auth"}` |
+| Invalid URL | 422 | `{"error": "Invalid URL format", "field": "url"}` |
+| MCP Reload Failed | 500 | `{"error": "Failed to reload MCP configuration", "details": "..."}` |
