@@ -76,7 +76,7 @@ Create a `.env` file in the `backend` directory:
 ANTHROPIC_API_KEY=your-anthropic-api-key
 MCP_CLIENT_ID=your-mcp-client-id
 MCP_CLIENT_SECRET=your-mcp-client-secret
-MCP_BASE_URL=https://agent-network-ingress-gw-0zaqgg.lr8qeg.deu-c1.cloudhub.io/orders-mcp/
+# MCP server URL is configured in backend/.mcp.json
 ```
 
 ## API Documentation
@@ -114,7 +114,7 @@ This project includes a comprehensive testing setup for learning evaluation best
 
 ### Unit Tests
 
-Test individual components (MCP client, A2A endpoints, agent tools):
+Test individual components (A2A endpoints, agent tools, MCP configuration):
 
 ```bash
 cd backend
@@ -150,14 +150,13 @@ simple-order-agent/
 ├── README.md           # This file
 ├── backend/
 │   ├── main.py         # FastAPI entry point
+│   ├── .mcp.json       # MCP server configuration for Claude Agent SDK
 │   ├── agent/          # Claude agent configuration
-│   ├── mcp/            # MCP client implementation
 │   ├── a2a/            # A2A protocol implementation
 │   └── tests/          # Unit tests and evals
 │       ├── evals/      # Agent evaluation framework
 │       │   ├── dataset.json   # Eval test cases
 │       │   └── run_evals.py   # Eval runner
-│       ├── test_mcp_client.py
 │       ├── test_agent_tools.py
 │       └── test_a2a_endpoints.py
 └── frontend/
@@ -202,7 +201,7 @@ Supported skills:
                  ▼
 ┌─────────────────────────────────────────┐
 │           FastAPI Backend               │
-│      Claude Agent + MCP Client          │
+│    Claude Agent SDK + .mcp.json         │
 └────────────────┬────────────────────────┘
                  │
                  ▼

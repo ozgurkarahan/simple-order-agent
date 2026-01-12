@@ -25,12 +25,7 @@ This is a test project for the Claude Agent SDK that connects to an Orders MCP s
 │         │                  │            │
 │         ▼                  ▼            │
 │  ┌──────────────────────────────────┐   │
-│  │     Claude Agent (Anthropic)     │   │
-│  └──────────────┬───────────────────┘   │
-│                 │                       │
-│                 ▼                       │
-│  ┌──────────────────────────────────┐   │
-│  │         MCP Client               │   │
+│  │   Claude Agent SDK + .mcp.json   │   │
 │  └──────────────┬───────────────────┘   │
 └─────────────────┼───────────────────────┘
                   │
@@ -47,7 +42,7 @@ This is a test project for the Claude Agent SDK that connects to an Orders MCP s
 
 - `main.py` - FastAPI application entry point
 - `agent/orders_agent.py` - Claude agent configuration with MCP tools
-- `mcp/client.py` - MCP client for Orders server communication
+- `.mcp.json` - MCP server configuration for Claude Agent SDK
 - `a2a/` - A2A protocol implementation (models, router, task manager)
 - `tests/` - Unit tests and agent evals
 
@@ -97,7 +92,8 @@ Backend requires (in `backend/.env`):
 - `ANTHROPIC_API_KEY` - Claude API key
 - `MCP_CLIENT_ID` - Orders MCP server client ID
 - `MCP_CLIENT_SECRET` - Orders MCP server client secret
-- `MCP_BASE_URL` - Orders MCP server URL
+
+Note: MCP server URL is configured in `backend/.mcp.json`
 
 ## Code Style
 
@@ -107,6 +103,8 @@ Backend requires (in `backend/.env`):
 
 ## Recent Changes
 
+- Migrated to Claude Agent SDK with external MCP server via `.mcp.json`
+- Removed custom MCP client (SDK handles MCP communication natively)
 - Simplified UI to chat-only interface (removed Analytics and Orders table views)
 - Full-screen conversational experience with agent status header
 - Quick action buttons: "Show all orders", "Search customer", "Revenue summary", "Create order"
