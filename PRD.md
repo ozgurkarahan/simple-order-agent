@@ -93,7 +93,7 @@ Accessing and analyzing order data typically requires:
 
 ## Technical Constraints
 
-- Must use Claude API (Anthropic) for the AI agent
+- Must use Claude Agent SDK for the AI agent
 - MCP server is external and read-heavy (rate limit awareness)
 - A2A implementation must follow Google's specification
 - Frontend must be accessible and responsive

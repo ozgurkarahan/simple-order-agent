@@ -29,11 +29,8 @@
 │                              │                                  │
 │                    ┌─────────▼─────────┐                       │
 │                    │   Orders Agent    │                       │
-│                    │  (Claude + Tools) │                       │
-│                    └─────────┬─────────┘                       │
-│                              │                                  │
-│                    ┌─────────▼─────────┐                       │
-│                    │    MCP Client     │                       │
+│                    │ (Claude SDK +     │                       │
+│                    │  .mcp.json)       │                       │
 │                    └─────────┬─────────┘                       │
 └──────────────────────────────┼──────────────────────────────────┘
                                │ HTTPS
@@ -53,7 +50,8 @@
 |-----------|------------|---------|
 | Runtime | Python | 3.11+ |
 | Framework | FastAPI | 0.109+ |
-| AI SDK | anthropic | 0.40+ |
+| AI SDK | claude-agent-sdk | 0.1.19+ |
+| AI Client | anthropic | 0.40+ |
 | HTTP Client | httpx | 0.27+ |
 | Validation | Pydantic | 2.0+ |
 | Testing | pytest | 8.0+ |
@@ -144,13 +142,28 @@ class Task(BaseModel):
     history: list[Message] | None
 ```
 
-#### 2.4 MCP Client
+#### 2.4 MCP Configuration
 
-The MCP client communicates with the Orders MCP server using:
+The Claude Agent SDK connects to the external MCP server using `.mcp.json` configuration:
 
-- **Transport**: HTTP with SSE for streaming
-- **Authentication**: Custom headers (`client_id`, `client_secret`)
-- **Base URL**: `https://agent-network-ingress-gw-0zaqgg.lr8qeg.deu-c1.cloudhub.io/orders-mcp/`
+```json
+{
+  "mcpServers": {
+    "orders": {
+      "type": "http",
+      "url": "https://agent-network-ingress-gw-0zaqgg.lr8qeg.deu-c1.cloudhub.io/orders-mcp/",
+      "headers": {
+        "client_id": "${MCP_CLIENT_ID}",
+        "client_secret": "${MCP_CLIENT_SECRET}"
+      }
+    }
+  }
+}
+```
+
+- **Transport**: HTTP with SSE for streaming (handled by SDK)
+- **Authentication**: Custom headers from environment variables
+- **Configuration**: `backend/.mcp.json`
 
 ##### Available Tools
 
@@ -211,7 +224,7 @@ Layout
 
 | Module | Test Coverage |
 |--------|---------------|
-| MCP Client | Request formatting, response parsing, error handling |
+| MCP Configuration | .mcp.json validation, SDK integration |
 | A2A Models | Schema validation, serialization |
 | A2A Router | Endpoint behavior, status codes |
 | Task Manager | State transitions, streaming |
