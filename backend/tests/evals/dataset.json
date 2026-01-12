@@ -1,6 +1,6 @@
 {
-  "version": "1.0",
-  "description": "Evaluation dataset for Orders Analytics Agent - matching actual MCP server tools",
+  "version": "1.1",
+  "description": "E2E evaluation dataset for Orders Analytics Agent with real MCP server",
   "evals": [
     {
       "id": "get_all_orders_basic",
@@ -31,7 +31,7 @@
       "category": "tool_selection",
       "input": "Show orders for customer CUST001",
       "expected_tool": "get_orders_by_customer_id",
-      "expected_params_subset": {"customer_id": "CUST001"},
+      "expected_params_subset": {"id": "CUST001"},
       "tags": ["happy_path", "customer"]
     },
     {
@@ -39,7 +39,7 @@
       "category": "tool_selection",
       "input": "What did customer C12345 order?",
       "expected_tool": "get_orders_by_customer_id",
-      "expected_params_subset": {"customer_id": "C12345"},
+      "expected_params_subset": {"id": "C12345"},
       "tags": ["happy_path", "customer"]
     },
     {
@@ -47,7 +47,7 @@
       "category": "tool_selection",
       "input": "Get order history for customer ABC",
       "expected_tool": "get_orders_by_customer_id",
-      "expected_params_contain_keys": ["customer_id"],
+      "expected_params_contain_keys": ["id"],
       "tags": ["happy_path", "customer"]
     },
     {
@@ -55,7 +55,7 @@
       "category": "tool_selection",
       "input": "Find orders by customer ID XYZ123",
       "expected_tool": "get_orders_by_customer_id",
-      "expected_params_contain_keys": ["customer_id"],
+      "expected_params_contain_keys": ["id"],
       "tags": ["happy_path", "customer"]
     },
     {
@@ -63,7 +63,7 @@
       "category": "tool_selection",
       "input": "Create an order for customer CUST001, name John Doe, product Laptop Pro, price $1299, date 2024-01-15T10:00:00",
       "expected_tool": "create_order",
-      "expected_params_contain_keys": ["customer_id", "customer_name", "product_name", "price"],
+      "expected_params_contain_keys": ["customerID", "customerName", "productName", "price"],
       "tags": ["happy_path", "create"]
     },
     {
@@ -71,7 +71,7 @@
       "category": "tool_selection",
       "input": "Place a new order for customer ABC123 named Alice Brown for a Widget X at $49.99",
       "expected_tool": "create_order",
-      "expected_params_contain_keys": ["customer_id", "customer_name", "product_name", "price"],
+      "expected_params_contain_keys": ["customerID", "customerName", "productName", "price"],
       "tags": ["happy_path", "create"]
     },
     {
@@ -124,7 +124,7 @@
       "category": "tool_selection",
       "input": "Show me all purchases by customer ID CUST999",
       "expected_tool": "get_orders_by_customer_id",
-      "expected_params_contain_keys": ["customer_id"],
+      "expected_params_contain_keys": ["id"],
       "tags": ["happy_path", "customer"]
     },
     {
@@ -148,7 +148,7 @@
       "category": "tool_selection",
       "input": "How much has customer C001 spent?",
       "expected_tool": "get_orders_by_customer_id",
-      "expected_params_contain_keys": ["customer_id"],
+      "expected_params_contain_keys": ["id"],
       "tags": ["analytics", "customer"]
     },
     {
@@ -157,6 +157,57 @@
       "input": "Count all orders in the system",
       "expected_tool": "get_all_orders",
       "tags": ["analytics", "count"]
+    },
+    {
+      "id": "e2e_list_orders_with_data",
+      "category": "e2e",
+      "input": "Show me all orders in the system",
+      "expected_tool": "get_all_orders",
+      "response_must_contain": ["order"],
+      "tags": ["e2e", "happy_path"]
+    },
+    {
+      "id": "e2e_customer_order_lookup",
+      "category": "e2e",
+      "input": "What orders does customer CUST001 have?",
+      "expected_tool": "get_orders_by_customer_id",
+      "expected_params_subset": {"id": "CUST001"},
+      "response_must_contain": ["CUST001"],
+      "tags": ["e2e", "customer"]
+    },
+    {
+      "id": "e2e_order_analytics_count",
+      "category": "e2e",
+      "input": "Tell me how many orders we have in total",
+      "expected_tool": "get_all_orders",
+      "response_must_contain": ["order"],
+      "tags": ["e2e", "analytics"]
+    },
+    {
+      "id": "e2e_order_creation_flow",
+      "category": "e2e",
+      "input": "I need to create an order for customer ID TEST001, customer name Test User, product Test Product, price 99.99, order date 2024-06-01T12:00:00",
+      "expected_tool": "create_order",
+      "expected_params_contain_keys": ["customerID", "customerName", "productName", "price"],
+      "response_must_contain": ["order"],
+      "tags": ["e2e", "create"]
+    },
+    {
+      "id": "e2e_revenue_analysis",
+      "category": "e2e",
+      "input": "Calculate the total revenue from all orders",
+      "expected_tool": "get_all_orders",
+      "response_must_contain": ["total", "$"],
+      "tags": ["e2e", "analytics", "revenue"]
+    },
+    {
+      "id": "e2e_customer_spending_analysis",
+      "category": "e2e",
+      "input": "How much has customer CUST002 spent in total?",
+      "expected_tool": "get_orders_by_customer_id",
+      "expected_params_contain_keys": ["id"],
+      "response_must_contain": ["CUST002"],
+      "tags": ["e2e", "analytics", "customer"]
     }
   ]
 }
