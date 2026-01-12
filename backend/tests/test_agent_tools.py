@@ -1,11 +1,10 @@
 """Tests for agent tools and configuration."""
 
-from unittest.mock import MagicMock, patch
+from unittest.mock import patch
 
 import pytest
 
 from agent.orders_agent import SYSTEM_PROMPT, OrdersAgent
-from tests.conftest import TOOLS
 
 
 class TestOrdersAgent:
@@ -29,9 +28,9 @@ class TestOrdersAgent:
             agent = OrdersAgent(model="claude-opus-4-20250514")
             assert agent.model == "claude-opus-4-20250514"
 
-    def test_tools_defined(self):
+    def test_tools_defined(self, agent_tools):
         """Test that all required tools are defined."""
-        tool_names = [t["name"] for t in TOOLS]
+        tool_names = [t["name"] for t in agent_tools]
         assert "get_all_orders" in tool_names
         assert "get_orders_by_customer_id" in tool_names
         assert "create_order" in tool_names
@@ -75,43 +74,43 @@ class TestOrdersAgent:
 class TestToolDefinitions:
     """Test tool definition structure and validation."""
 
-    def test_all_tools_have_required_fields(self):
+    def test_all_tools_have_required_fields(self, agent_tools):
         """Test that all tools have required fields."""
-        for tool in TOOLS:
+        for tool in agent_tools:
             assert "name" in tool
             assert "description" in tool
             assert "input_schema" in tool
             assert tool["input_schema"]["type"] == "object"
             assert "properties" in tool["input_schema"]
 
-    def test_tool_descriptions_are_meaningful(self):
+    def test_tool_descriptions_are_meaningful(self, agent_tools):
         """Test that tool descriptions are meaningful."""
-        for tool in TOOLS:
+        for tool in agent_tools:
             assert len(tool["description"]) > 20
             # Descriptions should not be generic
             assert tool["description"] != "A tool"
             assert tool["description"] != "Does something"
 
-    def test_get_all_orders_tool_schema(self):
+    def test_get_all_orders_tool_schema(self, agent_tools):
         """Test get_all_orders tool schema."""
-        tool = next(t for t in TOOLS if t["name"] == "get_all_orders")
+        tool = next(t for t in agent_tools if t["name"] == "get_all_orders")
 
         assert "description" in tool
         assert tool["input_schema"]["type"] == "object"
         assert tool["input_schema"]["properties"] == {}
 
-    def test_get_orders_by_customer_id_tool_schema(self):
+    def test_get_orders_by_customer_id_tool_schema(self, agent_tools):
         """Test get_orders_by_customer_id tool schema."""
-        tool = next(t for t in TOOLS if t["name"] == "get_orders_by_customer_id")
+        tool = next(t for t in agent_tools if t["name"] == "get_orders_by_customer_id")
 
         assert "description" in tool
         assert tool["input_schema"]["type"] == "object"
         assert "customer_id" in tool["input_schema"]["properties"]
         assert "customer_id" in tool["input_schema"]["required"]
 
-    def test_create_order_tool_schema(self):
+    def test_create_order_tool_schema(self, agent_tools):
         """Test create_order tool schema."""
-        tool = next(t for t in TOOLS if t["name"] == "create_order")
+        tool = next(t for t in agent_tools if t["name"] == "create_order")
 
         assert "description" in tool
         props = tool["input_schema"]["properties"]
