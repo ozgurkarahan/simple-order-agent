@@ -4,6 +4,12 @@ import logging
 from collections.abc import AsyncGenerator
 from contextlib import asynccontextmanager
 
+from dotenv import load_dotenv
+
+# Load environment variables from .env file into os.environ
+# This is required for Claude Agent SDK which reads ANTHROPIC_API_KEY from os.environ
+load_dotenv()
+
 from fastapi import FastAPI, HTTPException
 from fastapi.middleware.cors import CORSMiddleware
 from fastapi.responses import StreamingResponse
@@ -12,7 +18,6 @@ from pydantic import BaseModel
 from a2a import TaskManager, a2a_router, get_agent_card
 from agent import OrdersAgent
 from config import get_settings
-from mcp import MCPClient
 
 # Configure logging
 logging.basicConfig(
@@ -22,7 +27,6 @@ logging.basicConfig(
 logger = logging.getLogger(__name__)
 
 # Global instances
-mcp_client: MCPClient | None = None
 orders_agent: OrdersAgent | None = None
 task_manager: TaskManager | None = None
 
@@ -30,23 +34,12 @@ task_manager: TaskManager | None = None
 @asynccontextmanager
 async def lifespan(app: FastAPI) -> AsyncGenerator[None, None]:
     """Application lifespan manager for startup/shutdown events."""
-    global mcp_client, orders_agent, task_manager
+    global orders_agent, task_manager
 
-    settings = get_settings()
     logger.info("Starting Orders Analytics Agent...")
 
-    # Initialize MCP client
-    mcp_client = MCPClient(
-        base_url=settings.mcp_base_url,
-        client_id=settings.mcp_client_id,
-        client_secret=settings.mcp_client_secret,
-    )
-
-    # Initialize the Orders Agent
-    orders_agent = OrdersAgent(
-        api_key=settings.anthropic_api_key,
-        mcp_client=mcp_client,
-    )
+    # Initialize the Orders Agent (uses .mcp.json for MCP server config)
+    orders_agent = OrdersAgent()
 
     # Initialize Task Manager for A2A
     task_manager = TaskManager(agent=orders_agent)
@@ -57,8 +50,6 @@ async def lifespan(app: FastAPI) -> AsyncGenerator[None, None]:
 
     # Cleanup
     logger.info("Shutting down Orders Analytics Agent...")
-    if mcp_client:
-        await mcp_client.close()
 
 
 # Create FastAPI application

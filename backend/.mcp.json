@@ -1,0 +1,12 @@
+{
+  "mcpServers": {
+    "orders": {
+      "type": "http",
+      "url": "https://agent-network-ingress-gw-0zaqgg.lr8qeg.deu-c1.cloudhub.io/orders-mcp/",
+      "headers": {
+        "client_id": "${MCP_CLIENT_ID}",
+        "client_secret": "${MCP_CLIENT_SECRET}"
+      }
+    }
+  }
+}

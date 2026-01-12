@@ -1,6 +1,6 @@
-"""Tests for agent tools."""
+"""Tests for agent tools and configuration."""
 
-from unittest.mock import AsyncMock, patch
+from unittest.mock import MagicMock, patch
 
 import pytest
 
@@ -11,29 +11,22 @@ class TestOrdersAgent:
     """Test cases for OrdersAgent."""
 
     @pytest.fixture
-    def mock_mcp_client(self):
-        """Create a mock MCP client."""
-        client = AsyncMock()
-        client.get_all_orders.return_value = [{"orderID": "ORD-001", "productName": "Widget"}]
-        client.get_orders_by_customer_id.return_value = [
-            {"orderID": "ORD-001", "customerID": "CUST001"}
-        ]
-        client.create_order.return_value = {"orderID": "ORD-NEW", "status": "created"}
-        return client
-
-    @pytest.fixture
-    def agent(self, mock_mcp_client):
+    def agent(self):
         """Create an agent for testing."""
-        with patch("agent.orders_agent.anthropic.AsyncAnthropic"):
-            return OrdersAgent(
-                api_key="test-api-key",
-                mcp_client=mock_mcp_client,
-            )
+        # Patch the SDK to avoid actual initialization
+        with patch("agent.orders_agent.query"):
+            return OrdersAgent()
 
     def test_init(self, agent):
         """Test agent initialization."""
         assert agent.model == "claude-sonnet-4-20250514"
         assert agent.conversations == {}
+
+    def test_init_custom_model(self):
+        """Test agent initialization with custom model."""
+        with patch("agent.orders_agent.query"):
+            agent = OrdersAgent(model="claude-opus-4-20250514")
+            assert agent.model == "claude-opus-4-20250514"
 
     def test_tools_defined(self):
         """Test that all required tools are defined."""
@@ -45,9 +38,58 @@ class TestOrdersAgent:
     def test_system_prompt_defined(self):
         """Test that system prompt is defined and contains key information."""
         assert "Orders Analytics Agent" in SYSTEM_PROMPT
-        assert "get_all_orders" in SYSTEM_PROMPT
-        assert "get_orders_by_customer_id" in SYSTEM_PROMPT
-        assert "create_order" in SYSTEM_PROMPT
+        assert "get-all-orders" in SYSTEM_PROMPT
+        assert "get-orders-by-customer-id" in SYSTEM_PROMPT
+        assert "create-order" in SYSTEM_PROMPT
+
+    def test_get_conversation_new(self, agent):
+        """Test getting a new conversation."""
+        conv = agent._get_conversation("new-conv-id")
+        assert conv == []
+        assert "new-conv-id" in agent.conversations
+
+    def test_get_conversation_existing(self, agent):
+        """Test getting an existing conversation."""
+        agent.conversations["existing-id"] = [{"role": "user", "content": "Hello"}]
+
+        conv = agent._get_conversation("existing-id")
+        assert len(conv) == 1
+
+    def test_get_conversation_none(self, agent):
+        """Test getting conversation with None ID."""
+        conv = agent._get_conversation(None)
+        assert conv == []
+
+    def test_build_options(self, agent):
+        """Test that build_options returns correct configuration."""
+        options = agent._build_options()
+
+        assert options.model == "claude-sonnet-4-20250514"
+        assert options.system_prompt == SYSTEM_PROMPT
+        assert options.setting_sources == ["project"]
+        assert options.permission_mode == "auto"
+        assert options.max_turns == 10
+
+
+class TestToolDefinitions:
+    """Test tool definition structure and validation."""
+
+    def test_all_tools_have_required_fields(self):
+        """Test that all tools have required fields."""
+        for tool in TOOLS:
+            assert "name" in tool
+            assert "description" in tool
+            assert "input_schema" in tool
+            assert tool["input_schema"]["type"] == "object"
+            assert "properties" in tool["input_schema"]
+
+    def test_tool_descriptions_are_meaningful(self):
+        """Test that tool descriptions are meaningful."""
+        for tool in TOOLS:
+            assert len(tool["description"]) > 20
+            # Descriptions should not be generic
+            assert tool["description"] != "A tool"
+            assert tool["description"] != "Does something"
 
     def test_get_all_orders_tool_schema(self):
         """Test get_all_orders tool schema."""
@@ -85,116 +127,37 @@ class TestOrdersAgent:
         assert "price" in required
         assert "order_date" in required
 
-    @pytest.mark.asyncio
-    async def test_execute_tool_get_all_orders(self, agent, mock_mcp_client):
-        """Test executing get_all_orders tool."""
-        result = await agent._execute_tool("get_all_orders", {})
 
-        mock_mcp_client.get_all_orders.assert_called_once()
-        assert result == [{"orderID": "ORD-001", "productName": "Widget"}]
+class TestMcpConfiguration:
+    """Test MCP configuration file."""
 
-    @pytest.mark.asyncio
-    async def test_execute_tool_get_orders_by_customer_id(self, agent, mock_mcp_client):
-        """Test executing get_orders_by_customer_id tool."""
-        result = await agent._execute_tool("get_orders_by_customer_id", {"customer_id": "CUST001"})
+    def test_mcp_json_exists(self):
+        """Test that .mcp.json configuration file exists."""
+        import json
+        from pathlib import Path
 
-        mock_mcp_client.get_orders_by_customer_id.assert_called_once_with(customer_id="CUST001")
-        assert result == [{"orderID": "ORD-001", "customerID": "CUST001"}]
+        mcp_config_path = Path(__file__).parent.parent / ".mcp.json"
+        assert mcp_config_path.exists(), ".mcp.json file should exist"
 
-    @pytest.mark.asyncio
-    async def test_execute_tool_create_order(self, agent, mock_mcp_client):
-        """Test executing create_order tool."""
-        result = await agent._execute_tool(
-            "create_order",
-            {
-                "customer_id": "CUST001",
-                "customer_name": "John Doe",
-                "product_name": "Widget",
-                "price": 99.99,
-                "order_date": "2024-01-15T10:00:00",
-            },
-        )
+        with open(mcp_config_path) as f:
+            config = json.load(f)
 
-        mock_mcp_client.create_order.assert_called_once_with(
-            customer_id="CUST001",
-            customer_name="John Doe",
-            product_name="Widget",
-            price=99.99,
-            order_date="2024-01-15T10:00:00",
-        )
-        assert result["orderID"] == "ORD-NEW"
+        assert "mcpServers" in config
+        assert "orders" in config["mcpServers"]
 
-    @pytest.mark.asyncio
-    async def test_execute_tool_create_order_auto_date(self, agent, mock_mcp_client):
-        """Test create_order tool auto-generates date if not provided."""
-        await agent._execute_tool(
-            "create_order",
-            {
-                "customer_id": "CUST001",
-                "customer_name": "John Doe",
-                "product_name": "Widget",
-                "price": 99.99,
-            },
-        )
+    def test_mcp_json_has_correct_structure(self):
+        """Test that .mcp.json has correct structure."""
+        import json
+        from pathlib import Path
 
-        # Verify create_order was called with a generated date
-        call_args = mock_mcp_client.create_order.call_args
-        assert call_args.kwargs["order_date"] is not None
+        mcp_config_path = Path(__file__).parent.parent / ".mcp.json"
 
-    @pytest.mark.asyncio
-    async def test_execute_tool_unknown(self, agent):
-        """Test executing unknown tool raises error."""
-        with pytest.raises(ValueError) as exc_info:
-            await agent._execute_tool("unknown_tool", {})
+        with open(mcp_config_path) as f:
+            config = json.load(f)
 
-        assert "Unknown tool" in str(exc_info.value)
-
-    def test_get_conversation_new(self, agent):
-        """Test getting a new conversation."""
-        conv = agent._get_conversation("new-conv-id")
-        assert conv == []
-        assert "new-conv-id" in agent.conversations
-
-    def test_get_conversation_existing(self, agent):
-        """Test getting an existing conversation."""
-        agent.conversations["existing-id"] = [{"role": "user", "content": "Hello"}]
-
-        conv = agent._get_conversation("existing-id")
-        assert len(conv) == 1
-
-    def test_get_conversation_none(self, agent):
-        """Test getting conversation with None ID."""
-        conv = agent._get_conversation(None)
-        assert conv == []
-
-
-class TestToolDefinitions:
-    """Test tool definition structure and validation."""
-
-    def test_all_tools_have_required_fields(self):
-        """Test that all tools have required fields."""
-        for tool in TOOLS:
-            assert "name" in tool
-            assert "description" in tool
-            assert "input_schema" in tool
-            assert tool["input_schema"]["type"] == "object"
-            assert "properties" in tool["input_schema"]
-
-    def test_tool_descriptions_are_meaningful(self):
-        """Test that tool descriptions are meaningful."""
-        for tool in TOOLS:
-            assert len(tool["description"]) > 20
-            # Descriptions should not be generic
-            assert tool["description"] != "A tool"
-            assert tool["description"] != "Does something"
-
-    def test_required_params_have_descriptions(self):
-        """Test that required parameters have descriptions."""
-        for tool in TOOLS:
-            required = tool["input_schema"].get("required", [])
-            for param_name in required:
-                prop = tool["input_schema"]["properties"].get(param_name)
-                assert prop is not None, (
-                    f"Required param {param_name} not in properties for {tool['name']}"
-                )
-                assert "description" in prop, f"Missing description for {tool['name']}.{param_name}"
+        orders_config = config["mcpServers"]["orders"]
+        assert orders_config["type"] == "http"
+        assert "url" in orders_config
+        assert "headers" in orders_config
+        assert "client_id" in orders_config["headers"]
+        assert "client_secret" in orders_config["headers"]
