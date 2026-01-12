@@ -2,6 +2,7 @@
 
 import json
 import logging
+from datetime import datetime
 from typing import Any, AsyncGenerator
 
 import anthropic
@@ -14,9 +15,9 @@ logger = logging.getLogger(__name__)
 SYSTEM_PROMPT = """You are an intelligent Orders Analytics Agent. Your role is to help users query, analyze, and manage order data.
 
 You have access to the following tools:
-1. **list_orders** - Query orders with filters (status, date range, customer ID, limit)
-2. **get_order** - Get detailed information about a specific order by ID
-3. **create_order** - Create a new order with customer ID, items, and shipping address
+1. **get_all_orders** - Retrieve all orders from the system. Use this for overview queries or when no specific customer is mentioned.
+2. **get_orders_by_customer_id** - Get orders for a specific customer by their ID. Use this when the user asks about a particular customer's orders.
+3. **create_order** - Create a new order. Requires customer ID, customer name, product name, price, and order date.
 
 When users ask about orders, you should:
 - Use the appropriate tool to fetch data
@@ -30,98 +31,65 @@ For analytics queries:
 - Highlight important patterns or anomalies
 - Suggest follow-up analyses that might be useful
 
+For order creation:
+- Ensure all required fields are provided
+- Use ISO 8601 format for dates (YYYY-MM-DDTHH:MM:SS)
+- Confirm the order details with the user before creating
+
 Be conversational but concise. Focus on delivering value through actionable insights."""
 
-# Tool definitions for Claude
+# Tool definitions for Claude - matching the actual MCP server tools
 TOOLS = [
     {
-        "name": "list_orders",
-        "description": "List and filter orders from the order management system. Use this to query orders by status, date range, customer, or to get recent orders.",
+        "name": "get_all_orders",
+        "description": "Retrieve all customer orders from the system. Each order record contains the product name, amount, size, and order date. Use this for overview queries, analytics, or when no specific customer is mentioned.",
         "input_schema": {
             "type": "object",
-            "properties": {
-                "status": {
-                    "type": "string",
-                    "description": "Filter by order status (e.g., 'pending', 'processing', 'shipped', 'delivered', 'cancelled')",
-                },
-                "date_from": {
-                    "type": "string",
-                    "description": "Filter orders from this date (ISO 8601 format, e.g., '2024-01-01')",
-                },
-                "date_to": {
-                    "type": "string",
-                    "description": "Filter orders until this date (ISO 8601 format, e.g., '2024-01-31')",
-                },
-                "customer_id": {
-                    "type": "string",
-                    "description": "Filter by customer ID",
-                },
-                "limit": {
-                    "type": "integer",
-                    "description": "Maximum number of orders to return (default: 10)",
-                },
-            },
+            "properties": {},
         },
     },
     {
-        "name": "get_order",
-        "description": "Get detailed information about a specific order by its ID. Use this when the user asks about a specific order.",
+        "name": "get_orders_by_customer_id",
+        "description": "Get a customer's complete order history by their customer ID. Returns a list of their orders including product name, quantity, price, size, and order date. Use this when the user asks about a specific customer's orders.",
         "input_schema": {
             "type": "object",
             "properties": {
-                "order_id": {
+                "customer_id": {
                     "type": "string",
-                    "description": "The unique order ID to retrieve",
+                    "description": "The unique identifier of the customer (e.g., 'CUST001', 'C12345')",
                 },
             },
-            "required": ["order_id"],
+            "required": ["customer_id"],
         },
     },
     {
         "name": "create_order",
-        "description": "Create a new order in the system. Use this when the user wants to place a new order.",
+        "description": "Create a new order record in the system. All fields are required. Returns the generated order ID for tracking.",
         "input_schema": {
             "type": "object",
             "properties": {
                 "customer_id": {
                     "type": "string",
-                    "description": "The customer ID for the order",
+                    "description": "The unique identifier of the customer placing the order",
                 },
-                "items": {
-                    "type": "array",
-                    "description": "List of items in the order",
-                    "items": {
-                        "type": "object",
-                        "properties": {
-                            "product_id": {
-                                "type": "string",
-                                "description": "Product ID",
-                            },
-                            "quantity": {
-                                "type": "integer",
-                                "description": "Quantity of the product",
-                            },
-                            "price": {
-                                "type": "number",
-                                "description": "Unit price of the product",
-                            },
-                        },
-                        "required": ["product_id", "quantity"],
-                    },
+                "customer_name": {
+                    "type": "string",
+                    "description": "The full name of the customer",
                 },
-                "shipping_address": {
-                    "type": "object",
-                    "description": "Shipping address for the order",
-                    "properties": {
-                        "street": {"type": "string"},
-                        "city": {"type": "string"},
-                        "state": {"type": "string"},
-                        "zip": {"type": "string"},
-                        "country": {"type": "string"},
-                    },
+                "product_name": {
+                    "type": "string",
+                    "description": "The name of the product being purchased",
+                },
+                "price": {
+                    "type": "number",
+                    "description": "The total price or cost of the order",
+                },
+                "order_date": {
+                    "type": "string",
+                    "description": "The order timestamp in ISO 8601 format (YYYY-MM-DDTHH:MM:SS). Use current date/time if not specified.",
                 },
             },
-            "required": ["customer_id", "items"],
+            "required": ["customer_id", "customer_name", "product_name", "price", "order_date"],
         },
     },
 ]
@@ -179,25 +147,26 @@ class OrdersAgent:
         """
         logger.info(f"Executing tool: {tool_name} with input: {tool_input}")
 
-        if tool_name == "list_orders":
-            return await self.mcp_client.list_orders(
-                status=tool_input.get("status"),
-                date_from=tool_input.get("date_from"),
-                date_to=tool_input.get("date_to"),
-                customer_id=tool_input.get("customer_id"),
-                limit=tool_input.get("limit"),
-            )
+        if tool_name == "get_all_orders":
+            return await self.mcp_client.get_all_orders()
 
-        elif tool_name == "get_order":
-            return await self.mcp_client.get_order(
-                order_id=tool_input["order_id"],
+        elif tool_name == "get_orders_by_customer_id":
+            return await self.mcp_client.get_orders_by_customer_id(
+                customer_id=tool_input["customer_id"],
             )
 
         elif tool_name == "create_order":
+            # Use current datetime if not provided
+            order_date = tool_input.get("order_date")
+            if not order_date:
+                order_date = datetime.now().strftime("%Y-%m-%dT%H:%M:%S")
+            
             return await self.mcp_client.create_order(
                 customer_id=tool_input["customer_id"],
-                items=tool_input["items"],
-                shipping_address=tool_input.get("shipping_address"),
+                customer_name=tool_input["customer_name"],
+                product_name=tool_input["product_name"],
+                price=tool_input["price"],
+                order_date=order_date,
             )
 
         else:

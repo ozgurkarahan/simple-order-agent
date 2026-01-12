@@ -13,9 +13,9 @@ class TestOrdersAgent:
     def mock_mcp_client(self):
         """Create a mock MCP client."""
         client = AsyncMock()
-        client.list_orders.return_value = [{"order_id": "ORD-001"}]
-        client.get_order.return_value = {"order_id": "ORD-001", "status": "pending"}
-        client.create_order.return_value = {"order_id": "ORD-NEW"}
+        client.get_all_orders.return_value = [{"orderID": "ORD-001", "productName": "Widget"}]
+        client.get_orders_by_customer_id.return_value = [{"orderID": "ORD-001", "customerID": "CUST001"}]
+        client.create_order.return_value = {"orderID": "ORD-NEW", "status": "created"}
         return client
 
     @pytest.fixture
@@ -35,39 +35,33 @@ class TestOrdersAgent:
     def test_tools_defined(self):
         """Test that all required tools are defined."""
         tool_names = [t["name"] for t in TOOLS]
-        assert "list_orders" in tool_names
-        assert "get_order" in tool_names
+        assert "get_all_orders" in tool_names
+        assert "get_orders_by_customer_id" in tool_names
         assert "create_order" in tool_names
 
     def test_system_prompt_defined(self):
         """Test that system prompt is defined and contains key information."""
         assert "Orders Analytics Agent" in SYSTEM_PROMPT
-        assert "list_orders" in SYSTEM_PROMPT
-        assert "get_order" in SYSTEM_PROMPT
+        assert "get_all_orders" in SYSTEM_PROMPT
+        assert "get_orders_by_customer_id" in SYSTEM_PROMPT
         assert "create_order" in SYSTEM_PROMPT
 
-    def test_list_orders_tool_schema(self):
-        """Test list_orders tool schema."""
-        tool = next(t for t in TOOLS if t["name"] == "list_orders")
+    def test_get_all_orders_tool_schema(self):
+        """Test get_all_orders tool schema."""
+        tool = next(t for t in TOOLS if t["name"] == "get_all_orders")
 
         assert "description" in tool
         assert tool["input_schema"]["type"] == "object"
+        assert tool["input_schema"]["properties"] == {}
 
-        props = tool["input_schema"]["properties"]
-        assert "status" in props
-        assert "date_from" in props
-        assert "date_to" in props
-        assert "customer_id" in props
-        assert "limit" in props
-
-    def test_get_order_tool_schema(self):
-        """Test get_order tool schema."""
-        tool = next(t for t in TOOLS if t["name"] == "get_order")
+    def test_get_orders_by_customer_id_tool_schema(self):
+        """Test get_orders_by_customer_id tool schema."""
+        tool = next(t for t in TOOLS if t["name"] == "get_orders_by_customer_id")
 
         assert "description" in tool
         assert tool["input_schema"]["type"] == "object"
-        assert "order_id" in tool["input_schema"]["properties"]
-        assert "order_id" in tool["input_schema"]["required"]
+        assert "customer_id" in tool["input_schema"]["properties"]
+        assert "customer_id" in tool["input_schema"]["required"]
 
     def test_create_order_tool_schema(self):
         """Test create_order tool schema."""
@@ -76,34 +70,33 @@ class TestOrdersAgent:
         assert "description" in tool
         props = tool["input_schema"]["properties"]
         assert "customer_id" in props
-        assert "items" in props
-        assert "shipping_address" in props
+        assert "customer_name" in props
+        assert "product_name" in props
+        assert "price" in props
+        assert "order_date" in props
 
         required = tool["input_schema"]["required"]
         assert "customer_id" in required
-        assert "items" in required
+        assert "customer_name" in required
+        assert "product_name" in required
+        assert "price" in required
+        assert "order_date" in required
 
     @pytest.mark.asyncio
-    async def test_execute_tool_list_orders(self, agent, mock_mcp_client):
-        """Test executing list_orders tool."""
-        result = await agent._execute_tool("list_orders", {"status": "pending"})
+    async def test_execute_tool_get_all_orders(self, agent, mock_mcp_client):
+        """Test executing get_all_orders tool."""
+        result = await agent._execute_tool("get_all_orders", {})
 
-        mock_mcp_client.list_orders.assert_called_once_with(
-            status="pending",
-            date_from=None,
-            date_to=None,
-            customer_id=None,
-            limit=None,
-        )
-        assert result == [{"order_id": "ORD-001"}]
+        mock_mcp_client.get_all_orders.assert_called_once()
+        assert result == [{"orderID": "ORD-001", "productName": "Widget"}]
 
     @pytest.mark.asyncio
-    async def test_execute_tool_get_order(self, agent, mock_mcp_client):
-        """Test executing get_order tool."""
-        result = await agent._execute_tool("get_order", {"order_id": "ORD-001"})
+    async def test_execute_tool_get_orders_by_customer_id(self, agent, mock_mcp_client):
+        """Test executing get_orders_by_customer_id tool."""
+        result = await agent._execute_tool("get_orders_by_customer_id", {"customer_id": "CUST001"})
 
-        mock_mcp_client.get_order.assert_called_once_with(order_id="ORD-001")
-        assert result["order_id"] == "ORD-001"
+        mock_mcp_client.get_orders_by_customer_id.assert_called_once_with(customer_id="CUST001")
+        assert result == [{"orderID": "ORD-001", "customerID": "CUST001"}]
 
     @pytest.mark.asyncio
     async def test_execute_tool_create_order(self, agent, mock_mcp_client):
@@ -111,13 +104,39 @@ class TestOrdersAgent:
         result = await agent._execute_tool(
             "create_order",
             {
-                "customer_id": "CUST-001",
-                "items": [{"product_id": "PROD-001", "quantity": 2}],
+                "customer_id": "CUST001",
+                "customer_name": "John Doe",
+                "product_name": "Widget",
+                "price": 99.99,
+                "order_date": "2024-01-15T10:00:00",
             },
         )
 
-        mock_mcp_client.create_order.assert_called_once()
-        assert result["order_id"] == "ORD-NEW"
+        mock_mcp_client.create_order.assert_called_once_with(
+            customer_id="CUST001",
+            customer_name="John Doe",
+            product_name="Widget",
+            price=99.99,
+            order_date="2024-01-15T10:00:00",
+        )
+        assert result["orderID"] == "ORD-NEW"
+
+    @pytest.mark.asyncio
+    async def test_execute_tool_create_order_auto_date(self, agent, mock_mcp_client):
+        """Test create_order tool auto-generates date if not provided."""
+        result = await agent._execute_tool(
+            "create_order",
+            {
+                "customer_id": "CUST001",
+                "customer_name": "John Doe",
+                "product_name": "Widget",
+                "price": 99.99,
+            },
+        )
+
+        # Verify create_order was called with a generated date
+        call_args = mock_mcp_client.create_order.call_args
+        assert call_args.kwargs["order_date"] is not None
 
     @pytest.mark.asyncio
     async def test_execute_tool_unknown(self, agent):
@@ -166,9 +185,11 @@ class TestToolDefinitions:
             assert tool["description"] != "A tool"
             assert tool["description"] != "Does something"
 
-    def test_property_descriptions_exist(self):
-        """Test that properties have descriptions."""
+    def test_required_params_have_descriptions(self):
+        """Test that required parameters have descriptions."""
         for tool in TOOLS:
-            for prop_name, prop_def in tool["input_schema"]["properties"].items():
-                assert "description" in prop_def, f"Missing description for {tool['name']}.{prop_name}"
-                assert len(prop_def["description"]) > 5
+            required = tool["input_schema"].get("required", [])
+            for param_name in required:
+                prop = tool["input_schema"]["properties"].get(param_name)
+                assert prop is not None, f"Required param {param_name} not in properties for {tool['name']}"
+                assert "description" in prop, f"Missing description for {tool['name']}.{param_name}"

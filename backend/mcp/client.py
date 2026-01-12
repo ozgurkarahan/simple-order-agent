@@ -1,5 +1,6 @@
 """MCP Client for communicating with the Orders MCP server."""
 
+import json
 import logging
 from typing import Any
 
@@ -18,7 +19,8 @@ class MCPClient:
     """
     Client for communicating with the Orders MCP server.
 
-    Handles authentication and provides methods for each MCP operation.
+    Handles authentication, session management, and provides methods for each MCP operation.
+    Uses the MCP protocol with SSE transport.
     """
 
     def __init__(
@@ -41,36 +43,71 @@ class MCPClient:
         self.client_id = client_id
         self.client_secret = client_secret
         self.timeout = timeout
+        self.session_id: str | None = None
+        self._initialized = False
 
         self._client = httpx.AsyncClient(
-            base_url=self.base_url,
             timeout=timeout,
-            headers={
-                "client_id": client_id,
-                "client_secret": client_secret,
-                "Content-Type": "application/json",
-            },
+            verify=True,  # Enable SSL verification in production
         )
 
         logger.info(f"MCP Client initialized for {self.base_url}")
+
+    def _get_headers(self) -> dict[str, str]:
+        """Get headers for MCP requests."""
+        headers = {
+            "Content-Type": "application/json",
+            "Accept": "application/json, text/event-stream",
+            "client_id": self.client_id,
+            "client_secret": self.client_secret,
+        }
+        if self.session_id:
+            headers["mcp-session-id"] = self.session_id
+        return headers
 
     async def close(self) -> None:
         """Close the HTTP client."""
         await self._client.aclose()
 
-    async def _request(
-        self,
-        method: str,
-        endpoint: str,
-        **kwargs: Any,
-    ) -> dict[str, Any]:
+    def _parse_sse_response(self, response_text: str) -> dict[str, Any]:
         """
-        Make an HTTP request to the MCP server.
+        Parse SSE response format from MCP server.
 
         Args:
-            method: HTTP method (GET, POST, etc.)
-            endpoint: API endpoint (without base URL)
-            **kwargs: Additional arguments for httpx request
+            response_text: Raw SSE response text
+
+        Returns:
+            Parsed JSON data from the response
+        """
+        # SSE format: "event: message\ndata: {...}\n\n"
+        for line in response_text.split("\n"):
+            if line.startswith("data: "):
+                data_str = line[6:]  # Remove "data: " prefix
+                try:
+                    return json.loads(data_str)
+                except json.JSONDecodeError as e:
+                    logger.error(f"Failed to parse SSE data: {e}")
+                    raise MCPClientError(f"Invalid JSON in SSE response: {data_str}")
+        
+        # If no data line found, try parsing the whole response as JSON
+        try:
+            return json.loads(response_text)
+        except json.JSONDecodeError:
+            raise MCPClientError(f"Could not parse response: {response_text[:200]}")
+
+    async def _request(
+        self,
+        method_name: str,
+        params: dict[str, Any] | None = None,
+        request_id: int = 1,
+    ) -> dict[str, Any]:
+        """
+        Make a JSON-RPC request to the MCP server.
+
+        Args:
+            method_name: MCP method name
+            params: Method parameters
+            request_id: JSON-RPC request ID
 
         Returns:
             JSON response as dictionary
@@ -78,10 +115,36 @@ class MCPClient:
         Raises:
             MCPClientError: If the request fails
         """
+        payload: dict[str, Any] = {
+            "jsonrpc": "2.0",
+            "id": request_id,
+            "method": method_name,
+        }
+        if params:
+            payload["params"] = params
+
         try:
-            response = await self._client.request(method, endpoint, **kwargs)
+            response = await self._client.post(
+                f"{self.base_url}/",
+                headers=self._get_headers(),
+                json=payload,
+            )
+            
+            # Store session ID from response headers
+            if "mcp-session-id" in response.headers:
+                self.session_id = response.headers["mcp-session-id"]
+            
             response.raise_for_status()
-            return response.json()
+            
+            # Parse SSE response
+            result = self._parse_sse_response(response.text)
+            
+            # Check for JSON-RPC error
+            if "error" in result:
+                error = result["error"]
+                raise MCPClientError(f"MCP error {error.get('code')}: {error.get('message')}")
+            
+            return result.get("result", {})
 
         except httpx.HTTPStatusError as e:
             logger.error(f"MCP HTTP error: {e.response.status_code} - {e.response.text}")
@@ -93,6 +156,34 @@ class MCPClient:
             logger.error(f"MCP request error: {e}")
             raise MCPClientError(f"Failed to connect to MCP server: {e}")
 
+    async def initialize(self) -> dict[str, Any]:
+        """
+        Initialize the MCP session.
+
+        Returns:
+            Server capabilities and info
+        """
+        if self._initialized:
+            return {}
+
+        result = await self._request(
+            "initialize",
+            params={
+                "protocolVersion": "2024-11-05",
+                "capabilities": {},
+                "clientInfo": {
+                    "name": "orders-analytics-agent",
+                    "version": "1.0.0",
+                },
+            },
+        )
+        
+        self._initialized = True
+        logger.info(f"MCP session initialized: {self.session_id}")
+        logger.info(f"Server info: {result.get('serverInfo', {})}")
+        
+        return result
+
     async def list_tools(self) -> list[dict[str, Any]]:
         """
         List available tools from the MCP server.
@@ -100,12 +191,11 @@ class MCPClient:
         Returns:
             List of tool definitions
         """
-        response = await self._request("POST", "/mcp", json={
-            "jsonrpc": "2.0",
-            "id": 1,
-            "method": "tools/list",
-        })
-        return response.get("result", {}).get("tools", [])
+        if not self._initialized:
+            await self.initialize()
+
+        result = await self._request("tools/list", request_id=2)
+        return result.get("tools", [])
 
     async def call_tool(
         self,
@@ -122,19 +212,20 @@ class MCPClient:
         Returns:
             Tool execution result
         """
+        if not self._initialized:
+            await self.initialize()
+
         logger.info(f"Calling MCP tool: {tool_name} with args: {arguments}")
 
-        response = await self._request("POST", "/mcp", json={
-            "jsonrpc": "2.0",
-            "id": 1,
-            "method": "tools/call",
-            "params": {
+        result = await self._request(
+            "tools/call",
+            params={
                 "name": tool_name,
                 "arguments": arguments or {},
             },
-        })
+            request_id=3,
+        )
 
-        result = response.get("result", {})
         logger.debug(f"MCP tool response: {result}")
 
         # Handle MCP content array format
@@ -144,82 +235,63 @@ class MCPClient:
                 # Return the text content from the first item
                 first_item = content[0]
                 if isinstance(first_item, dict) and "text" in first_item:
-                    return first_item["text"]
+                    # Try to parse as JSON if possible
+                    try:
+                        return json.loads(first_item["text"])
+                    except json.JSONDecodeError:
+                        return first_item["text"]
             return content
 
         return result
 
     # Convenience methods for specific tools
 
-    async def list_orders(
-        self,
-        status: str | None = None,
-        date_from: str | None = None,
-        date_to: str | None = None,
-        customer_id: str | None = None,
-        limit: int | None = None,
-    ) -> Any:
+    async def get_all_orders(self) -> Any:
         """
-        List orders with optional filters.
-
-        Args:
-            status: Filter by order status
-            date_from: Filter orders from this date (ISO format)
-            date_to: Filter orders until this date (ISO format)
-            customer_id: Filter by customer ID
-            limit: Maximum number of orders to return
+        Get all orders from the system.
 
         Returns:
-            List of orders
+            List of all orders
         """
-        arguments = {}
-        if status:
-            arguments["status"] = status
-        if date_from:
-            arguments["date_from"] = date_from
-        if date_to:
-            arguments["date_to"] = date_to
-        if customer_id:
-            arguments["customer_id"] = customer_id
-        if limit:
-            arguments["limit"] = limit
+        return await self.call_tool("get-all-orders", {})
 
-        return await self.call_tool("list_orders", arguments)
-
-    async def get_order(self, order_id: str) -> Any:
+    async def get_orders_by_customer_id(self, customer_id: str) -> Any:
         """
-        Get details for a specific order.
+        Get orders for a specific customer.
 
         Args:
-            order_id: The order ID to retrieve
+            customer_id: The customer ID to look up
 
         Returns:
-            Order details
+            List of orders for the customer
         """
-        return await self.call_tool("get_order", {"order_id": order_id})
+        return await self.call_tool("get-orders-by-customer-id", {"id": customer_id})
 
     async def create_order(
         self,
         customer_id: str,
-        items: list[dict[str, Any]],
-        shipping_address: dict[str, Any] | None = None,
+        customer_name: str,
+        product_name: str,
+        price: float,
+        order_date: str,
     ) -> Any:
         """
         Create a new order.
 
         Args:
-            customer_id: Customer ID for the order
-            items: List of order items with product_id, quantity, price
-            shipping_address: Optional shipping address
+            customer_id: The unique identifier of the customer
+            customer_name: The full name of the customer
+            product_name: The name of the product being purchased
+            price: The total price of the order
+            order_date: The order date in ISO 8601 format (YYYY-MM-DDTHH:MM:SS)
 
         Returns:
-            Created order details
+            Created order details with generated orderID
         """
-        arguments = {
-            "customer_id": customer_id,
-            "items": items,
-        }
-        if shipping_address:
-            arguments["shipping_address"] = shipping_address
-
-        return await self.call_tool("create_order", arguments)
+        return await self.call_tool("create-order", {
+            "customerID": customer_id,
+            "customerName": customer_name,
+            "productName": product_name,
+            "price": price,
+            "orderDate": order_date,
+        })
