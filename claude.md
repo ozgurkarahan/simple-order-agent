@@ -11,14 +11,12 @@ This is a test project for the Claude Agent SDK that connects to an Orders MCP s
 ## Architecture
 
 ```
-┌─────────────────┐     ┌─────────────────┐
-│   Web Dashboard │     │  Other A2A      │
-│   (Next.js)     │     │  Agents         │
-└────────┬────────┘     └────────┬────────┘
-         │                       │
-         │ REST API              │ A2A Protocol
-         │                       │
-         ▼                       ▼
+┌─────────────────────────────────────────┐
+│         Chat Interface (Next.js)        │
+│    Full-screen conversational UI        │
+└────────────────┬────────────────────────┘
+                 │ REST API / SSE
+                 ▼
 ┌─────────────────────────────────────────┐
 │           FastAPI Backend               │
 │  ┌─────────────┐  ┌─────────────────┐   │
@@ -56,15 +54,18 @@ This is a test project for the Claude Agent SDK that connects to an Orders MCP s
 ### Frontend (`/frontend`)
 
 - Next.js 14 application with App Router
-- Chat interface for natural language interaction
-- Analytics dashboard for order insights
-- Agent Card display component
+- Single-page chat interface for natural language interaction
+- Real-time streaming responses
+- Quick action buttons for common queries
 
 ## MCP Server Details
 
 - **URL**: `https://agent-network-ingress-gw-0zaqgg.lr8qeg.deu-c1.cloudhub.io/orders-mcp/`
 - **Auth**: Custom headers (`client_id`, `client_secret`)
-- **Operations**: list_orders, get_order, create_order
+- **Tools**:
+  - `get-all-orders` - Retrieve all orders
+  - `get-orders-by-customer-id` - Get orders for a specific customer
+  - `create-order` - Create a new order
 
 ## Development Commands
 
@@ -92,13 +93,20 @@ pytest tests/evals/
 
 ## Environment Variables
 
-Backend requires:
+Backend requires (in `backend/.env`):
 - `ANTHROPIC_API_KEY` - Claude API key
 - `MCP_CLIENT_ID` - Orders MCP server client ID
 - `MCP_CLIENT_SECRET` - Orders MCP server client secret
+- `MCP_BASE_URL` - Orders MCP server URL
 
 ## Code Style
 
 - Python: Use type hints, follow PEP 8, use async/await for I/O
 - TypeScript: Strict mode, use React hooks, prefer functional components
 - Tests: Descriptive test names, use fixtures, aim for >80% coverage
+
+## Recent Changes
+
+- Simplified UI to chat-only interface (removed Analytics and Orders table views)
+- Full-screen conversational experience with agent status header
+- Quick action buttons: "Show all orders", "Search customer", "Revenue summary", "Create order"

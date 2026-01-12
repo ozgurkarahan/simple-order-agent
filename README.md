@@ -1,33 +1,14 @@
-# Orders Analytics Agent Dashboard
+# Orders Analytics Agent
 
-An AI-powered analytics dashboard that enables natural language querying of order data using the Claude Agent SDK, MCP protocol, and A2A compliance.
+An AI-powered chat interface for querying and managing order data using the Claude Agent SDK, MCP protocol, and A2A compliance.
 
 ## Features
 
-- **Natural Language Queries**: Ask questions about orders in plain English
-- **Analytics Dashboard**: Visual charts and statistics for order insights
+- **Natural Language Chat**: Ask questions about orders in plain English
+- **Real-time Streaming**: See responses as they're generated
 - **A2A Protocol Support**: Discoverable and callable by other AI agents
+- **MCP Integration**: Connects to external Orders MCP server
 - **Comprehensive Testing**: Unit tests and agent evals included
-
-## Architecture
-
-```
-┌─────────────────┐     ┌─────────────────┐
-│   Web Dashboard │     │  Other A2A      │
-│   (Next.js)     │     │  Agents         │
-└────────┬────────┘     └────────┬────────┘
-         │                       │
-         ▼                       ▼
-┌─────────────────────────────────────────┐
-│           FastAPI Backend               │
-│         Claude Agent + MCP Client       │
-└─────────────────────────────────────────┘
-                  │
-                  ▼
-┌─────────────────────────────────────────┐
-│         Orders MCP Server               │
-└─────────────────────────────────────────┘
-```
 
 ## Quick Start
 
@@ -36,6 +17,7 @@ An AI-powered analytics dashboard that enables natural language querying of orde
 - Python 3.11+
 - Node.js 18+
 - Anthropic API key
+- MCP server credentials
 
 ### Backend Setup
 
@@ -69,7 +51,7 @@ npm install
 npm run dev
 ```
 
-Open [http://localhost:3000](http://localhost:3000) to access the dashboard.
+Open [http://localhost:3000](http://localhost:3000) to access the chat interface.
 
 ## Environment Variables
 
@@ -89,7 +71,7 @@ MCP_BASE_URL=https://agent-network-ingress-gw-0zaqgg.lr8qeg.deu-c1.cloudhub.io/o
 ```bash
 curl -X POST http://localhost:8000/api/chat \
   -H "Content-Type: application/json" \
-  -d '{"message": "Show me all orders from last week"}'
+  -d '{"message": "Show me all orders"}'
 ```
 
 ### A2A Agent Discovery
@@ -151,42 +133,53 @@ simple-order-agent/
 └── frontend/
     ├── src/
     │   ├── app/        # Next.js pages
-    │   ├── components/ # React components
+    │   ├── components/ # React components (Chat)
     │   └── lib/        # Utilities and API client
     └── package.json
 ```
 
 ## Example Queries
 
-Try these queries in the chat interface:
+Try these in the chat interface:
 
-- "Show me all orders from last week"
-- "What's the status of order #12345?"
-- "Which products are selling the most?"
-- "Create an order for customer C001 with 2 units of product P100"
-- "What's our total revenue this month?"
+- "Show me all orders"
+- "Find orders for customer 003KB000004r85iYAA"
+- "What's our total revenue?"
+- "Create an order for customer C001 named John Doe for a Laptop at $999"
+- "Help me create a new order"
 
 ## A2A Protocol
 
-This agent is A2A-compliant and can be discovered by other agents. The agent card is available at:
+This agent is A2A-compliant and can be discovered by other agents:
 
 ```
 GET /.well-known/agent.json
 ```
 
 Supported skills:
-- `list_orders` - Query and filter orders
-- `get_order` - Get order details by ID
+- `get_all_orders` - Retrieve all orders
+- `get_orders_by_customer_id` - Get customer order history
 - `create_order` - Create new orders
 - `analyze_orders` - Perform analytics queries
 
-## Contributing
+## Architecture
 
-1. Fork the repository
-2. Create a feature branch
-3. Make your changes
-4. Run tests: `pytest`
-5. Submit a pull request
+```
+┌─────────────────────────────────────────┐
+│      Chat Interface (Next.js)           │
+└────────────────┬────────────────────────┘
+                 │
+                 ▼
+┌─────────────────────────────────────────┐
+│           FastAPI Backend               │
+│      Claude Agent + MCP Client          │
+└────────────────┬────────────────────────┘
+                 │
+                 ▼
+┌─────────────────────────────────────────┐
+│         Orders MCP Server               │
+└─────────────────────────────────────────┘
+```
 
 ## License
 

@@ -1,39 +1,40 @@
 # Technical Specification
 
-## Orders Analytics Agent Dashboard
+## Orders Analytics Agent
 
 ### 1. System Architecture
 
 ```
 ┌─────────────────────────────────────────────────────────────────┐
-│                        FRONTEND (Next.js)                        │
-│  ┌─────────────┐  ┌─────────────┐  ┌─────────────────────────┐  │
-│  │    Chat     │  │  Analytics  │  │     Orders Table        │  │
-│  │  Component  │  │   Charts    │  │      Component          │  │
-│  └──────┬──────┘  └──────┬──────┘  └───────────┬─────────────┘  │
-│         └────────────────┼─────────────────────┘                │
-│                          │                                       │
-│                   ┌──────▼──────┐                                │
-│                   │   API Lib   │                                │
-│                   └──────┬──────┘                                │
-└──────────────────────────┼──────────────────────────────────────┘
-                           │ HTTP/SSE
-┌──────────────────────────┼──────────────────────────────────────┐
-│                    BACKEND (FastAPI)                             │
-│  ┌─────────────────┐  ┌──┴───────────┐  ┌───────────────────┐   │
-│  │  /api/chat      │  │ /a2a/tasks   │  │ /.well-known/     │   │
-│  │  (Chat API)     │  │ (A2A Tasks)  │  │  agent.json       │   │
-│  └────────┬────────┘  └──────┬───────┘  └─────────┬─────────┘   │
-│           └──────────────────┼────────────────────┘             │
+│                      FRONTEND (Next.js)                         │
+│  ┌───────────────────────────────────────────────────────────┐  │
+│  │                    Chat Component                          │  │
+│  │  ┌─────────────┐  ┌─────────────┐  ┌─────────────────┐    │  │
+│  │  │ MessageList │  │ QuickActions│  │   InputArea     │    │  │
+│  │  └─────────────┘  └─────────────┘  └─────────────────┘    │  │
+│  └───────────────────────────┬───────────────────────────────┘  │
 │                              │                                   │
-│                    ┌─────────▼─────────┐                        │
-│                    │   Orders Agent    │                        │
-│                    │  (Claude + Tools) │                        │
-│                    └─────────┬─────────┘                        │
-│                              │                                   │
-│                    ┌─────────▼─────────┐                        │
-│                    │    MCP Client     │                        │
-│                    └─────────┬─────────┘                        │
+│                       ┌──────▼──────┐                           │
+│                       │   API Lib   │                           │
+│                       └──────┬──────┘                           │
+└──────────────────────────────┼──────────────────────────────────┘
+                               │ HTTP/SSE
+┌──────────────────────────────┼──────────────────────────────────┐
+│                      BACKEND (FastAPI)                          │
+│  ┌─────────────────┐  ┌──────┴──────┐  ┌───────────────────┐   │
+│  │  /api/chat      │  │ /a2a/tasks  │  │ /.well-known/     │   │
+│  │  (Chat API)     │  │ (A2A Tasks) │  │  agent.json       │   │
+│  └────────┬────────┘  └──────┬──────┘  └─────────┬─────────┘   │
+│           └──────────────────┼───────────────────┘             │
+│                              │                                  │
+│                    ┌─────────▼─────────┐                       │
+│                    │   Orders Agent    │                       │
+│                    │  (Claude + Tools) │                       │
+│                    └─────────┬─────────┘                       │
+│                              │                                  │
+│                    ┌─────────▼─────────┐                       │
+│                    │    MCP Client     │                       │
+│                    └─────────┬─────────┘                       │
 └──────────────────────────────┼──────────────────────────────────┘
                                │ HTTPS
                     ┌──────────▼──────────┐
@@ -67,7 +68,7 @@ Content-Type: application/json
 
 Request:
 {
-  "message": "Show me orders from last week",
+  "message": "Show me all orders",
   "conversation_id": "optional-uuid"
 }
 
@@ -76,7 +77,7 @@ event: message
 data: {"type": "text", "content": "I'll fetch..."}
 
 event: tool_use
-data: {"type": "tool_use", "tool": "list_orders", "input": {...}}
+data: {"type": "tool_use", "tool": "get_all_orders", "input": {...}}
 
 event: tool_result
 data: {"type": "tool_result", "content": [...]}
@@ -155,9 +156,9 @@ The MCP client communicates with the Orders MCP server using:
 
 | Tool | Description | Parameters |
 |------|-------------|------------|
-| `list_orders` | Query orders with filters | `status`, `date_from`, `date_to`, `customer_id`, `limit` |
-| `get_order` | Get order by ID | `order_id` |
-| `create_order` | Create new order | `customer_id`, `items`, `shipping_address` |
+| `get-all-orders` | Retrieve all orders | None |
+| `get-orders-by-customer-id` | Get orders for a customer | `id` (customer ID) |
+| `create-order` | Create new order | `customerID`, `customerName`, `productName`, `price`, `orderDate` |
 
 ---
 
@@ -171,40 +172,36 @@ The MCP client communicates with the Orders MCP server using:
 | UI Library | React | 18+ |
 | Styling | Tailwind CSS | 3.4+ |
 | Components | shadcn/ui | latest |
-| Charts | Recharts | 2.12+ |
 | State | React Query | 5+ |
 
 #### 3.2 Page Structure
 
 ```
-/                    - Main dashboard with chat and analytics
+/                    - Full-screen chat interface
 ```
 
 #### 3.3 Component Hierarchy
 
 ```
 Layout
-├── Sidebar
-│   ├── Navigation
-│   └── AgentCard (A2A info)
-├── MainContent
-│   ├── Chat
-│   │   ├── MessageList
-│   │   ├── MessageInput
-│   │   └── QuickActions
-│   ├── Analytics
-│   │   ├── StatsCards
-│   │   └── Charts
-│   └── OrdersTable
-│       ├── DataTable
-│       └── OrderDetails (modal)
+├── Header
+│   ├── AgentInfo (name, status)
+│   └── StatusIndicators (online, streaming)
+└── Chat
+    ├── MessageList
+    │   ├── UserMessage
+    │   └── AgentMessage (with tool indicators)
+    ├── QuickActions (4 preset buttons)
+    └── InputArea
+        ├── TextArea
+        └── SendButton
 ```
 
 #### 3.4 State Management
 
 - **Server State**: React Query for API calls with caching
-- **UI State**: React useState/useReducer for local state
-- **Chat State**: Conversation history in React state, optional localStorage persistence
+- **UI State**: React useState for local state
+- **Chat State**: Conversation history in React state
 
 ---
 
