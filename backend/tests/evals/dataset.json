@@ -1,0 +1,165 @@
+{
+  "version": "1.0",
+  "description": "Evaluation dataset for Orders Analytics Agent",
+  "evals": [
+    {
+      "id": "list_orders_basic",
+      "category": "tool_selection",
+      "input": "Show me all orders",
+      "expected_tool": "list_orders",
+      "expected_params_subset": {},
+      "response_must_contain": ["order"],
+      "tags": ["happy_path", "list"]
+    },
+    {
+      "id": "list_orders_with_status",
+      "category": "tool_selection",
+      "input": "Show me all pending orders",
+      "expected_tool": "list_orders",
+      "expected_params_subset": {"status": "pending"},
+      "tags": ["happy_path", "list", "filter"]
+    },
+    {
+      "id": "list_orders_date_range",
+      "category": "tool_selection",
+      "input": "Show me orders from last week",
+      "expected_tool": "list_orders",
+      "expected_params_contain_keys": ["date_from"],
+      "tags": ["happy_path", "list", "date"]
+    },
+    {
+      "id": "list_orders_with_limit",
+      "category": "tool_selection",
+      "input": "Show me the 5 most recent orders",
+      "expected_tool": "list_orders",
+      "expected_params_subset": {"limit": 5},
+      "tags": ["happy_path", "list", "limit"]
+    },
+    {
+      "id": "list_orders_customer",
+      "category": "tool_selection",
+      "input": "Find all orders for customer C12345",
+      "expected_tool": "list_orders",
+      "expected_params_subset": {"customer_id": "C12345"},
+      "tags": ["happy_path", "list", "customer"]
+    },
+    {
+      "id": "get_order_by_id",
+      "category": "tool_selection",
+      "input": "What's the status of order ORD-12345?",
+      "expected_tool": "get_order",
+      "expected_params": {"order_id": "ORD-12345"},
+      "tags": ["happy_path", "get"]
+    },
+    {
+      "id": "get_order_details",
+      "category": "tool_selection",
+      "input": "Get details for order ABC123",
+      "expected_tool": "get_order",
+      "expected_params": {"order_id": "ABC123"},
+      "tags": ["happy_path", "get"]
+    },
+    {
+      "id": "get_order_hash_format",
+      "category": "tool_selection",
+      "input": "Show me order #98765",
+      "expected_tool": "get_order",
+      "expected_params": {"order_id": "98765"},
+      "tags": ["happy_path", "get", "format"]
+    },
+    {
+      "id": "create_order_basic",
+      "category": "tool_selection",
+      "input": "Create an order for customer CUST-001 with 2 units of product PROD-100",
+      "expected_tool": "create_order",
+      "expected_params_contain_keys": ["customer_id", "items"],
+      "tags": ["happy_path", "create"]
+    },
+    {
+      "id": "create_order_multiple_items",
+      "category": "tool_selection",
+      "input": "Place an order for customer ABC with products X (qty 1) and Y (qty 3)",
+      "expected_tool": "create_order",
+      "expected_params_contain_keys": ["customer_id", "items"],
+      "tags": ["happy_path", "create", "multiple"]
+    },
+    {
+      "id": "analytics_revenue",
+      "category": "response_quality",
+      "input": "What's our total revenue this month?",
+      "expected_tool": "list_orders",
+      "response_must_contain": ["revenue", "total"],
+      "tags": ["analytics", "revenue"]
+    },
+    {
+      "id": "analytics_top_products",
+      "category": "response_quality",
+      "input": "Which products are selling the most?",
+      "expected_tool": "list_orders",
+      "response_must_contain": ["product"],
+      "tags": ["analytics", "products"]
+    },
+    {
+      "id": "analytics_order_count",
+      "category": "response_quality",
+      "input": "How many orders did we get today?",
+      "expected_tool": "list_orders",
+      "response_must_contain": ["order"],
+      "tags": ["analytics", "count"]
+    },
+    {
+      "id": "ambiguous_order_reference",
+      "category": "clarification",
+      "input": "Show me the order",
+      "expected_behavior": "ask_for_clarification",
+      "tags": ["edge_case", "ambiguous"]
+    },
+    {
+      "id": "invalid_order_format",
+      "category": "error_handling",
+      "input": "Get order",
+      "expected_behavior": "ask_for_order_id",
+      "tags": ["edge_case", "missing_param"]
+    },
+    {
+      "id": "shipped_orders_filter",
+      "category": "tool_selection",
+      "input": "List all shipped orders",
+      "expected_tool": "list_orders",
+      "expected_params_subset": {"status": "shipped"},
+      "tags": ["happy_path", "list", "filter"]
+    },
+    {
+      "id": "delivered_orders_filter",
+      "category": "tool_selection",
+      "input": "Show me delivered orders",
+      "expected_tool": "list_orders",
+      "expected_params_subset": {"status": "delivered"},
+      "tags": ["happy_path", "list", "filter"]
+    },
+    {
+      "id": "cancelled_orders_filter",
+      "category": "tool_selection",
+      "input": "Find cancelled orders",
+      "expected_tool": "list_orders",
+      "expected_params_subset": {"status": "cancelled"},
+      "tags": ["happy_path", "list", "filter"]
+    },
+    {
+      "id": "order_tracking",
+      "category": "tool_selection",
+      "input": "Where is my order ORD-5678?",
+      "expected_tool": "get_order",
+      "expected_params": {"order_id": "ORD-5678"},
+      "tags": ["happy_path", "get", "tracking"]
+    },
+    {
+      "id": "recent_orders_natural",
+      "category": "tool_selection",
+      "input": "What are our latest orders?",
+      "expected_tool": "list_orders",
+      "expected_params_contain_keys": ["limit"],
+      "tags": ["happy_path", "list", "recent"]
+    }
+  ]
+}
