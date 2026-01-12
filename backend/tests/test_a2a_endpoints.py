@@ -48,8 +48,9 @@ class TestAgentCard:
         card = get_agent_card()
         skill_ids = [s.id for s in card.skills]
 
-        assert "list_orders" in skill_ids
-        assert "get_order" in skill_ids
+        # Updated to match actual MCP server tools
+        assert "get_all_orders" in skill_ids
+        assert "get_orders_by_customer_id" in skill_ids
         assert "create_order" in skill_ids
         assert "analyze_orders" in skill_ids
 
@@ -93,7 +94,20 @@ class TestA2AModels:
             id="art-001",
             name="Test Artifact",
             description="A test artifact",
-            mime_type="application/json",
+            parts=[Part(type="text", text='{"data": "value"}')],
+        )
+
+        assert artifact.id == "art-001"
+        # Default mime_type is text/plain
+        assert artifact.mime_type == "text/plain"
+
+    def test_artifact_with_mime_type(self):
+        """Test Artifact model with custom mime_type using alias."""
+        # Use the alias mimeType since that's how pydantic handles it
+        artifact = Artifact(
+            id="art-001",
+            name="Test Artifact",
+            mimeType="application/json",
             parts=[Part(type="text", text='{"data": "value"}')],
         )
 
@@ -130,8 +144,9 @@ class TestA2AModels:
 
     def test_task_status_update(self):
         """Test TaskStatusUpdate model."""
+        # Use the alias taskId since that's how pydantic validates
         update = TaskStatusUpdate(
-            task_id="task-001",
+            taskId="task-001",
             status=TaskStatus(state=TaskState.COMPLETED),
         )
 
@@ -226,7 +241,7 @@ class TestTaskLifecycle:
                 Artifact(
                     id="art-2",
                     name="Result 2",
-                    mime_type="application/json",
+                    mimeType="application/json",  # Use alias
                     parts=[Part(text='{"key": "value"}')],
                 ),
             ],

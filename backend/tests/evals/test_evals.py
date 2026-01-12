@@ -6,12 +6,6 @@ from pathlib import Path
 
 import pytest
 
-# Skip all tests if no API key
-pytestmark = pytest.mark.skipif(
-    not os.environ.get("ANTHROPIC_API_KEY"),
-    reason="ANTHROPIC_API_KEY not set",
-)
-
 
 @pytest.fixture
 def dataset():
@@ -30,49 +24,51 @@ def eval_runner():
     return EvalRunner(api_key=api_key)
 
 
+# Mark tests that require API key
+requires_api_key = pytest.mark.skipif(
+    not os.environ.get("ANTHROPIC_API_KEY"),
+    reason="ANTHROPIC_API_KEY not set",
+)
+
+
 class TestToolSelectionEvals:
     """Test tool selection accuracy."""
 
+    @requires_api_key
     @pytest.mark.asyncio
     async def test_list_orders_basic(self, eval_runner, dataset):
         """Test basic list orders query."""
-        eval_case = next(e for e in dataset["evals"] if e["id"] == "list_orders_basic")
+        eval_case = next(e for e in dataset["evals"] if e["id"] == "get_all_orders_basic")
         result = await eval_runner.run_single_eval(eval_case)
 
-        assert result.actual_tool == "list_orders", f"Expected list_orders, got {result.actual_tool}"
+        assert result.actual_tool == "get_all_orders", f"Expected get_all_orders, got {result.actual_tool}"
 
+    @requires_api_key
     @pytest.mark.asyncio
-    async def test_list_orders_with_status(self, eval_runner, dataset):
-        """Test list orders with status filter."""
-        eval_case = next(e for e in dataset["evals"] if e["id"] == "list_orders_with_status")
+    async def test_get_customer_orders(self, eval_runner, dataset):
+        """Test get orders by customer ID."""
+        eval_case = next(e for e in dataset["evals"] if e["id"] == "get_customer_orders_basic")
         result = await eval_runner.run_single_eval(eval_case)
 
-        assert result.actual_tool == "list_orders"
-        assert result.actual_params.get("status") == "pending"
+        assert result.actual_tool == "get_orders_by_customer_id"
+        assert "CUST001" in str(result.actual_params.get("customer_id", ""))
 
-    @pytest.mark.asyncio
-    async def test_get_order_by_id(self, eval_runner, dataset):
-        """Test get order by ID."""
-        eval_case = next(e for e in dataset["evals"] if e["id"] == "get_order_by_id")
-        result = await eval_runner.run_single_eval(eval_case)
-
-        assert result.actual_tool == "get_order"
-        assert "ORD-12345" in str(result.actual_params.get("order_id", ""))
-
+    @requires_api_key
     @pytest.mark.asyncio
     async def test_create_order_basic(self, eval_runner, dataset):
         """Test create order."""
-        eval_case = next(e for e in dataset["evals"] if e["id"] == "create_order_basic")
+        eval_case = next(e for e in dataset["evals"] if e["id"] == "create_order_full")
         result = await eval_runner.run_single_eval(eval_case)
 
         assert result.actual_tool == "create_order"
         assert "customer_id" in result.actual_params
-        assert "items" in result.actual_params
+        assert "product_name" in result.actual_params
 
 
 class TestBatchEvals:
     """Test batch evaluation runs."""
 
+    @requires_api_key
     @pytest.mark.asyncio
     @pytest.mark.slow
     async def test_happy_path_evals(self, eval_runner):
@@ -86,6 +82,7 @@ class TestBatchEvals:
         # We expect high accuracy on happy path cases
         assert summary.tool_accuracy >= 0.9, f"Tool accuracy {summary.tool_accuracy:.1%} below 90%"
 
+    @requires_api_key
     @pytest.mark.asyncio
     @pytest.mark.slow
     async def test_all_tool_selection_evals(self, eval_runner):
@@ -107,7 +104,7 @@ class TestBatchEvals:
 
 
 class TestDatasetValidity:
-    """Test that the dataset is valid."""
+    """Test that the dataset is valid - no API key required."""
 
     def test_dataset_loads(self, dataset):
         """Test that dataset loads successfully."""
@@ -139,3 +136,11 @@ class TestDatasetValidity:
         for eval_case in dataset["evals"]:
             assert eval_case["category"] in valid_categories, \
                 f"Invalid category {eval_case['category']} in eval {eval_case['id']}"
+
+    def test_expected_tools_are_valid(self, dataset):
+        """Test that expected tools match actual agent tools."""
+        valid_tools = {"get_all_orders", "get_orders_by_customer_id", "create_order"}
+        for eval_case in dataset["evals"]:
+            if "expected_tool" in eval_case:
+                assert eval_case["expected_tool"] in valid_tools, \
+                    f"Invalid expected_tool {eval_case['expected_tool']} in eval {eval_case['id']}"
