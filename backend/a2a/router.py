@@ -1,9 +1,9 @@
 """A2A protocol API endpoints."""
 
 import logging
-from typing import TYPE_CHECKING
+from typing import Annotated
 
-from fastapi import APIRouter, HTTPException, Request
+from fastapi import APIRouter, Depends, HTTPException, Request
 from fastapi.responses import StreamingResponse
 
 from .models import (
@@ -13,41 +13,56 @@ from .models import (
     Task,
     TaskState,
 )
-
-if TYPE_CHECKING:
-    from .task_manager import TaskManager
+from .task_manager import TaskManager
 
 logger = logging.getLogger(__name__)
 
 router = APIRouter(prefix="/a2a", tags=["A2A Protocol"])
 
 
-def get_task_manager(request: Request) -> "TaskManager":
-    """Get the task manager from app state."""
+def get_task_manager(request: Request) -> TaskManager | None:
+    """Get the task manager from app state or global."""
     task_manager = (
         request.app.state.task_manager if hasattr(request.app.state, "task_manager") else None
     )
     if task_manager is None:
         # Get from global in main.py
         from main import task_manager as global_task_manager
-
         return global_task_manager
     return task_manager
 
 
+def require_task_manager(request: Request) -> TaskManager:
+    """Dependency that ensures task manager is initialized."""
+    task_manager = get_task_manager(request)
+    if not task_manager:
+        raise HTTPException(status_code=503, detail="Task manager not initialized")
+    return task_manager
+
+
+# Type alias for cleaner endpoint signatures
+TaskManagerDep = Annotated[TaskManager, Depends(require_task_manager)]
+
+
+def get_task_or_404(task_manager: TaskManager, task_id: str) -> Task:
+    """Get a task by ID or raise 404 if not found."""
+    task = task_manager.get_task(task_id)
+    if not task:
+        raise HTTPException(
+            status_code=404,
+            detail=ErrorResponse(error="Task not found", task_id=task_id).model_dump(),
+        )
+    return task
+
+
 @router.post("/tasks", response_model=Task)
-async def create_task(request: Request, body: CreateTaskRequest) -> Task:
+async def create_task(body: CreateTaskRequest, task_manager: TaskManagerDep) -> Task:
     """
     Create a new A2A task.
 
     The task will be created in 'submitted' state and immediately
     start processing asynchronously.
     """
-    task_manager = get_task_manager(request)
-
-    if not task_manager:
-        raise HTTPException(status_code=503, detail="Task manager not initialized")
-
     try:
         task = await task_manager.create_task(body.message, body.metadata)
         logger.info(f"Created task: {task.id}")
@@ -59,51 +74,19 @@ async def create_task(request: Request, body: CreateTaskRequest) -> Task:
 
 
 @router.get("/tasks/{task_id}", response_model=Task)
-async def get_task(request: Request, task_id: str) -> Task:
-    """
-    Get the current status and details of a task.
-    """
-    task_manager = get_task_manager(request)
-
-    if not task_manager:
-        raise HTTPException(status_code=503, detail="Task manager not initialized")
-
-    task = task_manager.get_task(task_id)
-
-    if not task:
-        raise HTTPException(
-            status_code=404,
-            detail=ErrorResponse(
-                error="Task not found",
-                task_id=task_id,
-            ).model_dump(),
-        )
-
-    return task
+async def get_task(task_id: str, task_manager: TaskManagerDep) -> Task:
+    """Get the current status and details of a task."""
+    return get_task_or_404(task_manager, task_id)
 
 
 @router.post("/tasks/{task_id}/cancel", response_model=Task)
-async def cancel_task(request: Request, task_id: str) -> Task:
+async def cancel_task(task_id: str, task_manager: TaskManagerDep) -> Task:
     """
     Cancel an in-progress task.
 
     Only tasks in 'submitted' or 'working' state can be canceled.
     """
-    task_manager = get_task_manager(request)
-
-    if not task_manager:
-        raise HTTPException(status_code=503, detail="Task manager not initialized")
-
-    task = task_manager.get_task(task_id)
-
-    if not task:
-        raise HTTPException(
-            status_code=404,
-            detail=ErrorResponse(
-                error="Task not found",
-                task_id=task_id,
-            ).model_dump(),
-        )
+    task = get_task_or_404(task_manager, task_id)
 
     if task.status.state not in [TaskState.SUBMITTED, TaskState.WORKING]:
         raise HTTPException(
@@ -120,9 +103,9 @@ async def cancel_task(request: Request, task_id: str) -> Task:
 
 @router.post("/tasks/{task_id}/message", response_model=Task)
 async def send_message(
-    request: Request,
     task_id: str,
     body: SendMessageRequest,
+    task_manager: TaskManagerDep,
 ) -> Task:
     """
     Send a follow-up message to an existing task.
@@ -130,21 +113,7 @@ async def send_message(
     This is used when a task is in 'input-required' state and
     needs additional information from the user.
     """
-    task_manager = get_task_manager(request)
-
-    if not task_manager:
-        raise HTTPException(status_code=503, detail="Task manager not initialized")
-
-    task = task_manager.get_task(task_id)
-
-    if not task:
-        raise HTTPException(
-            status_code=404,
-            detail=ErrorResponse(
-                error="Task not found",
-                task_id=task_id,
-            ).model_dump(),
-        )
+    task = get_task_or_404(task_manager, task_id)
 
     if task.status.state not in [TaskState.INPUT_REQUIRED, TaskState.WORKING]:
         raise HTTPException(
@@ -160,28 +129,15 @@ async def send_message(
 
 
 @router.get("/tasks/{task_id}/stream")
-async def stream_task(request: Request, task_id: str) -> StreamingResponse:
+async def stream_task(task_id: str, task_manager: TaskManagerDep) -> StreamingResponse:
     """
     Stream task updates via Server-Sent Events (SSE).
 
     The stream will send events as the task progresses through
     its lifecycle and produces artifacts.
     """
-    task_manager = get_task_manager(request)
-
-    if not task_manager:
-        raise HTTPException(status_code=503, detail="Task manager not initialized")
-
-    task = task_manager.get_task(task_id)
-
-    if not task:
-        raise HTTPException(
-            status_code=404,
-            detail=ErrorResponse(
-                error="Task not found",
-                task_id=task_id,
-            ).model_dump(),
-        )
+    # Verify task exists before streaming
+    get_task_or_404(task_manager, task_id)
 
     async def event_generator():
         """Generate SSE events for task updates."""

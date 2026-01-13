@@ -3,7 +3,7 @@
 import json
 import logging
 import os
-from datetime import datetime
+from datetime import datetime, timezone
 from pathlib import Path
 from functools import lru_cache
 
@@ -77,7 +77,7 @@ class ConfigStore:
                 } if settings.mcp_client_id else {},
                 is_active=True
             ),
-            updated_at=datetime.utcnow()
+            updated_at=datetime.now(timezone.utc)
         )
     
     def load_config(self) -> AppConfig:
@@ -99,7 +99,7 @@ class ConfigStore:
             config = AppConfig(
                 a2a=A2AConfig(**data.get('a2a', {})),
                 mcp=MCPServerConfig(**data.get('mcp', {})),
-                updated_at=datetime.fromisoformat(data.get('updated_at', datetime.utcnow().isoformat()))
+                updated_at=datetime.fromisoformat(data.get('updated_at', datetime.now(timezone.utc).isoformat()))
             )
             logger.info(f"Loaded config from {self.config_file}")
             return config
@@ -138,7 +138,7 @@ class ConfigStore:
         Args:
             config: The configuration to save
         """
-        config.updated_at = datetime.utcnow()
+        config.updated_at = datetime.now(timezone.utc)
         
         data = {
             'a2a': {

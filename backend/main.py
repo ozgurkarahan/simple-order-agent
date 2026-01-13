@@ -91,11 +91,6 @@ app = FastAPI(
 
 # Configure CORS
 settings = get_settings()
-# #region agent log
-import json as _json
-with open("/Users/okarahan/claude-workspace/simple-order-agent/.cursor/debug.log", "a") as _f:
-    _f.write(_json.dumps({"location":"main.py:CORS","message":"CORS origins configured","data":{"origins":settings.cors_origins_list},"timestamp":__import__("time").time()*1000,"sessionId":"debug-session","hypothesisId":"H1-backend"}) + "\n")
-# #endregion
 app.add_middleware(
     CORSMiddleware,
     allow_origins=settings.cors_origins_list,
@@ -115,13 +110,6 @@ class ChatRequest(BaseModel):
 
     message: str
     conversation_id: str | None = None
-
-
-class ChatMessage(BaseModel):
-    """Chat message in response."""
-
-    role: str
-    content: str
 
 
 # Health check endpoint
