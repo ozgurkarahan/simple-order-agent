@@ -1,4 +1,4 @@
-"""Configuration data models for the Orders Analytics Agent."""
+"""Configuration data models for Oz's Order Management Agent."""
 
 from datetime import datetime
 from typing import Annotated

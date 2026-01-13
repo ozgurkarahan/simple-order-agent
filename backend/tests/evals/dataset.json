@@ -1,6 +1,6 @@
 {
   "version": "1.1",
-  "description": "E2E evaluation dataset for Orders Analytics Agent with real MCP server",
+  "description": "E2E evaluation dataset for Oz's Order Management Agent with real MCP server",
   "evals": [
     {
       "id": "get_all_orders_basic",

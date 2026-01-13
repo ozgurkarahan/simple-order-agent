@@ -37,7 +37,7 @@ class TestOrdersAgent:
 
     def test_system_prompt_defined(self):
         """Test that system prompt is defined and contains key information."""
-        assert "Orders Analytics Agent" in SYSTEM_PROMPT
+        assert "Oz's Order Management Agent" in SYSTEM_PROMPT
         assert "get-all-orders" in SYSTEM_PROMPT
         assert "get-orders-by-customer-id" in SYSTEM_PROMPT
         assert "create-order" in SYSTEM_PROMPT

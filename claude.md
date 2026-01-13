@@ -1,4 +1,4 @@
-# Orders Analytics Agent
+# Oz's Order Management Agent
 
 ## Project Overview
 
@@ -117,3 +117,11 @@ Note: MCP server URL is configured in `backend/.mcp.json`
   - Test connections before saving
   - Hot-reload agent with new MCP settings (no restart required)
   - JSON file persistence (`backend/data/config.json`)
+- **Renamed Agent**: Now "Oz's Order Management Agent"
+- **Claude Desktop UI Redesign**:
+  - Warm cream color palette with coral/terracotta accents
+  - Libre Baskerville serif font for headings
+  - Collapsible ToolAccordion for MCP tool results with "M" badge
+  - ConnectorsPopover showing connected MCP servers
+  - InputToolbar with pill-shaped input and model badge
+  - Minimal header with status indicators

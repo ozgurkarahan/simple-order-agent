@@ -1,6 +1,6 @@
 # Technical Specification
 
-## Orders Analytics Agent
+## Oz's Order Management Agent
 
 ### 1. System Architecture
 
@@ -362,18 +362,23 @@ async def update_mcp_config(config: MCPServerConfig) -> None:
 
 ```
 Layout
-├── Header
-│   ├── AgentInfo (name, status, connection indicator)
-│   ├── StatusIndicators (online, streaming)
+├── Header (minimal, right-aligned)
+│   ├── StatusIndicators (online, streaming badges)
 │   └── SettingsLink (gear icon → /settings)
-├── Chat (/)
-│   ├── MessageList
-│   │   ├── UserMessage
-│   │   └── AgentMessage (with tool indicators)
-│   ├── QuickActions (4 preset buttons)
-│   └── InputArea
-│       ├── TextArea
-│       └── SendButton
+├── Chat (/) - Claude Desktop-inspired design
+│   ├── EmptyState (centered when no messages)
+│   │   ├── AgentBranding (✦ logo + serif title)
+│   │   ├── InputToolbar (pill-shaped input)
+│   │   └── QuickActionsText (subtle links below)
+│   ├── MessageList (when messages exist)
+│   │   ├── UserMessage (right-aligned, muted bg)
+│   │   └── AgentMessage (left-aligned)
+│   │       └── ToolAccordion (collapsible MCP results)
+│   └── InputToolbar
+│       ├── TextArea (auto-resize)
+│       ├── ConnectorsPopover (MCP status display)
+│       ├── ModelBadge ("Claude Sonnet")
+│       └── SendButton (coral accent)
 └── Settings (/settings)
     ├── SettingsHeader
     │   ├── BackLink (← Back to Chat)
@@ -394,7 +399,34 @@ Layout
         └── ResetToDefaultsButton
 ```
 
-#### 3.4 Settings Page Specification
+#### 3.4 Design System
+
+##### Color Palette (Warm Cream Theme)
+
+| Token | HSL Value | Description |
+|-------|-----------|-------------|
+| background | 36 33% 95% | Warm cream background |
+| foreground | 25 20% 15% | Dark warm text |
+| card | 0 0% 100% | Pure white cards |
+| primary | 15 75% 55% | Coral/terracotta accent |
+| muted | 36 20% 90% | Subtle warm gray |
+| border | 36 15% 88% | Light warm border |
+
+##### Typography
+
+| Family | Font | Usage |
+|--------|------|-------|
+| Serif | Libre Baskerville | Headings, branding |
+| Sans | Inter | Body text, UI |
+| Mono | JetBrains Mono | Code, tool names |
+
+##### Component Patterns
+
+- **ToolAccordion**: Collapsible panel with "M" badge for MCP tool results
+- **ConnectorsPopover**: Dropdown showing connected MCP servers
+- **InputToolbar**: Pill-shaped input with bottom toolbar (actions, model badge, send)
+
+#### 3.5 Settings Page Specification
 
 ##### URL: `/settings`
 

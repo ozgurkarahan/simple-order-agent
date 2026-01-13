@@ -1,6 +1,6 @@
 # Product Requirements Document (PRD)
 
-## Orders Analytics Agent Dashboard
+## Oz's Order Management Agent Dashboard
 
 ### Executive Summary
 
@@ -68,6 +68,10 @@ Accessing and analyzing order data typically requires:
 | Conversation History | Persist and recall past conversations |
 | Quick Actions | Pre-built query buttons for common requests |
 | Streaming Responses | Real-time token streaming in UI |
+| Claude Desktop UI | Warm cream theme, serif headings, minimal design |
+| Tool Result Accordion | Collapsible display for MCP tool outputs with "M" badge |
+| MCP Status Indicator | Display connected MCP servers in chat input toolbar |
+| Connectors Popover | Quick access to view/manage MCP server connections |
 
 ### P2 (Nice to Have)
 
@@ -137,6 +141,8 @@ Currently, the frontend is tightly coupled to the local Orders Agent backend. Us
 
 | Metric | Target |
 |--------|--------|
+| UI Visual Consistency | Match Claude desktop aesthetic |
+| Tool Result Readability | Accordion expand/collapse in <100ms |
 | Tool Selection Accuracy | >95% |
 | Response Relevance | >4.0/5 (LLM-judged) |
 | Task Completion Rate | >85% |

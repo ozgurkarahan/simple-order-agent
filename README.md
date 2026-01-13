@@ -1,4 +1,4 @@
-# Orders Analytics Agent
+# Oz's Order Management Agent
 
 A **learning project** to explore the integration of a MuleSoft MCP server with the Claude Agent SDK. This project serves as a hands-on sandbox for:
 
@@ -15,6 +15,9 @@ A **learning project** to explore the integration of a MuleSoft MCP server with 
 - **MCP Integration**: Connects to external Orders MCP server
 - **Dynamic Configuration**: Configure A2A agents and MCP servers via Settings page
 - **Comprehensive Testing**: Unit tests and agent evals included
+- **Claude Desktop UI**: Warm cream theme, serif typography, minimal design inspired by Claude desktop
+- **Collapsible Tool Results**: Accordion-style display for MCP tool outputs with formatted tables
+- **MCP Connectors Display**: Visual indicator of connected MCP servers in input toolbar
 
 ## What You'll Learn
 

@@ -1,4 +1,4 @@
-"""Configuration API router for the Orders Analytics Agent."""
+"""Configuration API router for Oz's Order Management Agent."""
 
 import logging
 from typing import Callable

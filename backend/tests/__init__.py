@@ -1,1 +1,1 @@
-"""Test suite for Orders Analytics Agent."""
+"""Test suite for Oz's Order Management Agent."""

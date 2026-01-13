@@ -25,7 +25,7 @@ class TestAgentCard:
         """Test getting the agent card."""
         card = get_agent_card()
 
-        assert card.name == "Orders Analytics Agent"
+        assert card.name == "Oz's Order Management Agent"
         assert card.version == "1.0.0"
         assert card.capabilities.streaming is True
         assert len(card.skills) > 0

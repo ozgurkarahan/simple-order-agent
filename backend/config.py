@@ -1,4 +1,4 @@
-"""Configuration management for the Orders Analytics Agent."""
+"""Configuration management for Oz's Order Management Agent."""
 
 from functools import lru_cache
 
@@ -30,7 +30,7 @@ class Settings(BaseSettings):
     debug: bool = False
 
     # CORS Configuration
-    cors_origins: str = "http://localhost:3000,http://127.0.0.1:3000"
+    cors_origins: str = "http://localhost:3000,http://127.0.0.1:3000,http://localhost:3001,http://127.0.0.1:3001"
 
     @property
     def cors_origins_list(self) -> list[str]:
