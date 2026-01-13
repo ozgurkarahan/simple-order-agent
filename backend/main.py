@@ -91,9 +91,18 @@ app = FastAPI(
 
 # Configure CORS
 settings = get_settings()
+# Explicitly list all origins to support both localhost and 127.0.0.1
+cors_origins = [
+    "http://localhost:3000",
+    "http://localhost:3001",  
+    "http://localhost:3002",
+    "http://127.0.0.1:3000",
+    "http://127.0.0.1:3001",
+    "http://127.0.0.1:3002",
+]
 app.add_middleware(
     CORSMiddleware,
-    allow_origins=settings.cors_origins_list,
+    allow_origins=cors_origins,
     allow_credentials=True,
     allow_methods=["*"],
     allow_headers=["*"],
