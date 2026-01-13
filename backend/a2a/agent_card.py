@@ -14,7 +14,7 @@ def get_agent_card() -> AgentCard:
     at /.well-known/agent.json for discovery by other agents.
     """
     return AgentCard(
-        name="Orders Analytics Agent",
+        name="Oz's Order Management Agent",
         description="AI-powered agent for querying and analyzing order data. "
         "Supports natural language queries for order analytics, "
         "customer order lookup, and order creation.",

@@ -4,44 +4,25 @@
 
 @layer base {
   :root {
-    --background: 220 20% 97%;
-    --foreground: 220 20% 10%;
+    /* Claude Desktop-inspired warm cream color palette */
+    --background: 36 33% 95%;
+    --foreground: 25 20% 15%;
     --card: 0 0% 100%;
-    --card-foreground: 220 20% 10%;
-    --primary: 245 58% 51%;
+    --card-foreground: 25 20% 15%;
+    --primary: 15 75% 55%;
     --primary-foreground: 0 0% 100%;
-    --secondary: 220 14% 96%;
-    --secondary-foreground: 220 20% 20%;
-    --muted: 220 14% 96%;
-    --muted-foreground: 220 10% 46%;
-    --accent: 245 58% 95%;
-    --accent-foreground: 245 58% 35%;
+    --secondary: 36 20% 92%;
+    --secondary-foreground: 25 20% 20%;
+    --muted: 36 20% 90%;
+    --muted-foreground: 25 15% 45%;
+    --accent: 15 75% 95%;
+    --accent-foreground: 15 75% 35%;
     --destructive: 0 84% 60%;
     --destructive-foreground: 0 0% 100%;
-    --border: 220 13% 91%;
-    --input: 220 13% 91%;
-    --ring: 245 58% 51%;
-    --radius: 0.625rem;
-  }
-
-  .dark {
-    --background: 224 71% 4%;
-    --foreground: 213 31% 91%;
-    --card: 224 71% 6%;
-    --card-foreground: 213 31% 91%;
-    --primary: 245 58% 61%;
-    --primary-foreground: 0 0% 100%;
-    --secondary: 222 47% 11%;
-    --secondary-foreground: 213 31% 91%;
-    --muted: 223 47% 11%;
-    --muted-foreground: 215 20% 65%;
-    --accent: 245 58% 15%;
-    --accent-foreground: 245 58% 85%;
-    --destructive: 0 62% 30%;
-    --destructive-foreground: 0 85% 97%;
-    --border: 216 34% 17%;
-    --input: 216 34% 17%;
-    --ring: 245 58% 61%;
+    --border: 36 15% 88%;
+    --input: 36 15% 88%;
+    --ring: 15 75% 55%;
+    --radius: 0.75rem;
   }
 }
 
@@ -56,24 +37,23 @@
   }
 }
 
-/* Custom scrollbar */
+/* Custom scrollbar - subtle for light theme */
 ::-webkit-scrollbar {
   width: 8px;
   height: 8px;
 }
 
 ::-webkit-scrollbar-track {
-  background: hsl(var(--muted));
-  border-radius: 4px;
+  background: transparent;
 }
 
 ::-webkit-scrollbar-thumb {
-  background: hsl(var(--muted-foreground) / 0.3);
+  background: hsl(var(--muted-foreground) / 0.2);
   border-radius: 4px;
 }
 
 ::-webkit-scrollbar-thumb:hover {
-  background: hsl(var(--muted-foreground) / 0.5);
+  background: hsl(var(--muted-foreground) / 0.3);
 }
 
 /* Animations */
@@ -98,13 +78,27 @@
   animation-delay: 0.4s;
 }
 
-/* Message styles */
-.message-user {
-  @apply bg-primary text-primary-foreground;
+/* Accordion animation */
+@keyframes accordion-down {
+  from {
+    height: 0;
+    opacity: 0;
+  }
+  to {
+    height: var(--accordion-height);
+    opacity: 1;
+  }
 }
 
-.message-agent {
-  @apply bg-card border border-border;
+@keyframes accordion-up {
+  from {
+    height: var(--accordion-height);
+    opacity: 1;
+  }
+  to {
+    height: 0;
+    opacity: 0;
+  }
 }
 
 /* Prose styles for agent responses */
@@ -113,15 +107,15 @@
 }
 
 .prose-agent p {
-  @apply mb-2 last:mb-0;
+  @apply mb-3 last:mb-0;
 }
 
 .prose-agent ul {
-  @apply list-disc pl-4 mb-2;
+  @apply list-disc pl-4 mb-3;
 }
 
 .prose-agent ol {
-  @apply list-decimal pl-4 mb-2;
+  @apply list-decimal pl-4 mb-3;
 }
 
 .prose-agent code {
@@ -129,9 +123,26 @@
 }
 
 .prose-agent pre {
-  @apply bg-muted p-3 rounded-lg overflow-x-auto mb-2;
+  @apply bg-muted p-3 rounded-lg overflow-x-auto mb-3;
 }
 
 .prose-agent pre code {
   @apply bg-transparent p-0;
+}
+
+/* Table styles for tool results */
+.prose-agent table {
+  @apply w-full border-collapse mb-3;
+}
+
+.prose-agent th {
+  @apply text-left font-medium text-muted-foreground border-b border-border py-2 px-3;
+}
+
+.prose-agent td {
+  @apply border-b border-border/50 py-2 px-3;
+}
+
+.prose-agent tr:last-child td {
+  @apply border-b-0;
 }

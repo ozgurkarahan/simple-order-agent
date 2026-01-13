@@ -1,4 +1,4 @@
-"""Orders Analytics Agent using Claude Agent SDK with External MCP Server."""
+"""Oz's Order Management Agent using Claude Agent SDK with External MCP Server."""
 
 from __future__ import annotations
 
@@ -19,8 +19,8 @@ if TYPE_CHECKING:
 
 logger = logging.getLogger(__name__)
 
-# System prompt for the Orders Analytics Agent
-SYSTEM_PROMPT = """You are an intelligent Orders Analytics Agent. Your role is to help users query, analyze, and manage order data.
+# System prompt for Oz's Order Management Agent
+SYSTEM_PROMPT = """You are Oz's Order Management Agent. Your role is to help users query, analyze, and manage order data.
 
 You have access to the following tools from the orders MCP server:
 1. **get-all-orders** - Retrieve all orders from the system. Use this for overview queries or when no specific customer is mentioned.
@@ -148,13 +148,12 @@ class OrdersAgent:
                             }
 
                 elif isinstance(event, ResultMessage):
-                    if hasattr(event, "content"):
-                        for block in event.content:
-                            if hasattr(block, "text"):
-                                yield {
-                                    "type": "message",
-                                    "data": json.dumps({"type": "text", "content": block.text}),
-                                }
+                    # Emit tool result event
+                    if hasattr(event, "result") and event.result:
+                        yield {
+                            "type": "tool_result",
+                            "data": json.dumps({"result": str(event.result)}),
+                        }
 
             if conversation_id:
                 history = self._get_conversation(conversation_id)

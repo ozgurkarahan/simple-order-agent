@@ -167,7 +167,7 @@ def agent_tools():
 def sample_agent_card():
     """Sample agent card for testing."""
     return {
-        "name": "Orders Analytics Agent",
+        "name": "Oz's Order Management Agent",
         "description": "AI-powered agent for querying and analyzing order data.",
         "version": "1.0.0",
         "url": "http://localhost:8000",

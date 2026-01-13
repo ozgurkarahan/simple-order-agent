@@ -2,7 +2,7 @@
  * API client for communicating with the Orders Agent backend.
  */
 
-const API_BASE = "";
+const API_BASE = "http://localhost:8000";
 
 export interface ChatMessage {
   role: "user" | "agent";
@@ -115,7 +115,7 @@ export interface ConfigResetResponse {
 export async function fetchAgentCard(): Promise<AgentCard> {
   const response = await fetch(`${API_BASE}/.well-known/agent.json`);
   if (!response.ok) {
-    throw new Error("Failed to fetch agent card");
+    throw new Error(`Failed to fetch agent card: ${response.status}`);
   }
   return response.json();
 }
@@ -236,7 +236,7 @@ export async function checkHealth(): Promise<{
 export async function fetchConfig(): Promise<AppConfig> {
   const response = await fetch(`${API_BASE}/api/config`);
   if (!response.ok) {
-    throw new Error("Failed to fetch configuration");
+    throw new Error(`Failed to fetch configuration: ${response.status}`);
   }
   return response.json();
 }

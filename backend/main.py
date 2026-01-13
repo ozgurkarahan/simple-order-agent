@@ -1,4 +1,4 @@
-"""FastAPI application entry point for Orders Analytics Agent."""
+"""FastAPI application entry point for Oz's Order Management Agent."""
 
 import logging
 from collections.abc import AsyncGenerator
@@ -58,7 +58,7 @@ async def lifespan(app: FastAPI) -> AsyncGenerator[None, None]:
     """Application lifespan manager for startup/shutdown events."""
     global orders_agent, task_manager
 
-    logger.info("Starting Orders Analytics Agent...")
+    logger.info("Starting Oz's Order Management Agent...")
 
     # Set up the reload callback for config changes
     set_reload_agent_callback(reload_agent)
@@ -73,17 +73,17 @@ async def lifespan(app: FastAPI) -> AsyncGenerator[None, None]:
     # Initialize Task Manager for A2A
     task_manager = TaskManager(agent=orders_agent)
 
-    logger.info("Orders Analytics Agent started successfully")
+    logger.info("Oz's Order Management Agent started successfully")
 
     yield
 
     # Cleanup
-    logger.info("Shutting down Orders Analytics Agent...")
+    logger.info("Shutting down Oz's Order Management Agent...")
 
 
 # Create FastAPI application
 app = FastAPI(
-    title="Orders Analytics Agent",
+    title="Oz's Order Management Agent",
     description="AI-powered order analytics with MCP and A2A support",
     version="1.0.0",
     lifespan=lifespan,
@@ -91,6 +91,11 @@ app = FastAPI(
 
 # Configure CORS
 settings = get_settings()
+# #region agent log
+import json as _json
+with open("/Users/okarahan/claude-workspace/simple-order-agent/.cursor/debug.log", "a") as _f:
+    _f.write(_json.dumps({"location":"main.py:CORS","message":"CORS origins configured","data":{"origins":settings.cors_origins_list},"timestamp":__import__("time").time()*1000,"sessionId":"debug-session","hypothesisId":"H1-backend"}) + "\n")
+# #endregion
 app.add_middleware(
     CORSMiddleware,
     allow_origins=settings.cors_origins_list,
