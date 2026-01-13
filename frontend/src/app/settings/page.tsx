@@ -143,6 +143,7 @@ export default function SettingsPage() {
   const { data: config, isLoading, error } = useQuery({
     queryKey: ["config"],
     queryFn: fetchConfig,
+    retry: false,
   });
 
   // Update form when config loads
