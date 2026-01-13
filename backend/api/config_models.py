@@ -1,10 +1,9 @@
 """Configuration data models for Oz's Order Management Agent."""
 
-from datetime import datetime
-from typing import Annotated
+from datetime import datetime, timezone
+import re
 
 from pydantic import BaseModel, Field, field_validator
-import re
 
 
 def validate_http_url(url: str) -> str:
@@ -14,113 +13,72 @@ def validate_http_url(url: str) -> str:
     return url
 
 
-class A2AConfig(BaseModel):
+def validate_string_headers(headers: dict) -> dict:
+    """Validate that headers are string key-value pairs."""
+    for key, value in headers.items():
+        if not isinstance(key, str) or not isinstance(value, str):
+            raise ValueError('Headers must be string key-value pairs')
+    return headers
+
+
+class BaseConfigModel(BaseModel):
+    """Base model with common URL and headers validation."""
+
+    url: str
+    headers: dict[str, str] = Field(default_factory=dict)
+
+    @field_validator('url')
+    @classmethod
+    def validate_url(cls, v: str) -> str:
+        return validate_http_url(v)
+
+    @field_validator('headers')
+    @classmethod
+    def validate_headers(cls, v: dict) -> dict:
+        return validate_string_headers(v)
+
+
+class A2AConfig(BaseConfigModel):
     """A2A agent connection configuration."""
-    
-    url: Annotated[str, Field(default="http://localhost:8000")]
-    headers: dict[str, str] = Field(default_factory=dict)
+
+    url: str = "http://localhost:8000"
     is_local: bool = True
-    
-    @field_validator('url')
-    @classmethod
-    def validate_url(cls, v: str) -> str:
-        return validate_http_url(v)
-    
-    @field_validator('headers')
-    @classmethod
-    def validate_headers(cls, v: dict) -> dict:
-        for key, value in v.items():
-            if not isinstance(key, str) or not isinstance(value, str):
-                raise ValueError('Headers must be string key-value pairs')
-        return v
 
 
-class A2AConfigUpdate(BaseModel):
+class A2AConfigUpdate(BaseConfigModel):
     """Request model for updating A2A configuration."""
-    
-    url: str
-    headers: dict[str, str] = Field(default_factory=dict)
-    
-    @field_validator('url')
-    @classmethod
-    def validate_url(cls, v: str) -> str:
-        return validate_http_url(v)
-    
-    @field_validator('headers')
-    @classmethod
-    def validate_headers(cls, v: dict) -> dict:
-        for key, value in v.items():
-            if not isinstance(key, str) or not isinstance(value, str):
-                raise ValueError('Headers must be string key-value pairs')
-        return v
+    pass
 
 
-class MCPServerConfig(BaseModel):
+class MCPServerConfig(BaseConfigModel):
     """MCP server configuration."""
-    
+
     name: str = "orders"
-    url: str
-    headers: dict[str, str] = Field(default_factory=dict)
     is_active: bool = True
-    
-    @field_validator('url')
-    @classmethod
-    def validate_url(cls, v: str) -> str:
-        return validate_http_url(v)
-    
-    @field_validator('headers')
-    @classmethod
-    def validate_headers(cls, v: dict) -> dict:
-        for key, value in v.items():
-            if not isinstance(key, str) or not isinstance(value, str):
-                raise ValueError('Headers must be string key-value pairs')
-        return v
 
 
-class MCPConfigUpdate(BaseModel):
+class MCPConfigUpdate(BaseConfigModel):
     """Request model for updating MCP configuration."""
-    
+
     name: str
-    url: str
-    headers: dict[str, str] = Field(default_factory=dict)
-    
-    @field_validator('url')
-    @classmethod
-    def validate_url(cls, v: str) -> str:
-        return validate_http_url(v)
-    
-    @field_validator('headers')
-    @classmethod
-    def validate_headers(cls, v: dict) -> dict:
-        for key, value in v.items():
-            if not isinstance(key, str) or not isinstance(value, str):
-                raise ValueError('Headers must be string key-value pairs')
-        return v
 
 
 class AppConfig(BaseModel):
     """Complete application configuration."""
-    
+
     a2a: A2AConfig
     mcp: MCPServerConfig
-    updated_at: datetime = Field(default_factory=datetime.utcnow)
+    updated_at: datetime = Field(default_factory=lambda: datetime.now(timezone.utc))
 
 
-class ConnectionTestRequest(BaseModel):
+class ConnectionTestRequest(BaseConfigModel):
     """Request model for testing connections."""
-    
-    url: str
-    headers: dict[str, str] = Field(default_factory=dict)
-    
-    @field_validator('url')
-    @classmethod
-    def validate_url(cls, v: str) -> str:
-        return validate_http_url(v)
+    pass
 
 
 class A2ATestResponse(BaseModel):
     """Response model for A2A connection test."""
-    
+
     success: bool
     agent_card: dict | None = None
     error: str | None = None
@@ -128,7 +86,7 @@ class A2ATestResponse(BaseModel):
 
 class MCPTestResponse(BaseModel):
     """Response model for MCP connection test."""
-    
+
     success: bool
     tools: list[str] | None = None
     error: str | None = None
@@ -136,7 +94,7 @@ class MCPTestResponse(BaseModel):
 
 class ConfigUpdateResponse(BaseModel):
     """Response model for config updates."""
-    
+
     status: str
     connection_test: str | None = None
     reload_required: bool = False
@@ -144,6 +102,6 @@ class ConfigUpdateResponse(BaseModel):
 
 class ConfigResetResponse(BaseModel):
     """Response model for config reset."""
-    
+
     status: str
     message: str
