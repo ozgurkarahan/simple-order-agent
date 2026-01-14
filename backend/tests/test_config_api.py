@@ -61,11 +61,13 @@ class TestConfigAPI:
         assert data["a2a"]["url"] == "http://localhost:8000"
         assert data["a2a"]["is_local"] is True
         
-        # Check MCP defaults
-        assert "mcp" in data
-        assert data["mcp"]["name"] == "orders"
-        assert "url" in data["mcp"]
-        assert data["mcp"]["is_active"] is True
+        # Check MCP servers defaults (list)
+        assert "mcp_servers" in data
+        assert isinstance(data["mcp_servers"], list)
+        assert len(data["mcp_servers"]) > 0
+        assert data["mcp_servers"][0]["name"] == "orders"
+        assert "url" in data["mcp_servers"][0]
+        assert data["mcp_servers"][0]["is_active"] is True
 
     def test_get_config_returns_saved_config(self, test_client):
         """GET /api/config should return saved configuration from file."""
@@ -78,12 +80,15 @@ class TestConfigAPI:
                 "headers": {"Authorization": "Bearer test-token"},
                 "is_local": False
             },
-            "mcp": {
-                "name": "custom-mcp",
-                "url": "https://custom-mcp.example.com/",
-                "headers": {"client_id": "test-id"},
-                "is_active": True
-            },
+            "mcp_servers": [
+                {
+                    "id": "test-id-123",
+                    "name": "custom-mcp",
+                    "url": "https://custom-mcp.example.com/",
+                    "headers": {"client_id": "test-id"},
+                    "is_active": True
+                }
+            ],
             "updated_at": "2025-01-12T10:00:00"
         }
         config_file.write_text(json.dumps(config_data))
@@ -93,7 +98,7 @@ class TestConfigAPI:
         assert response.status_code == 200
         data = response.json()
         assert data["a2a"]["url"] == "https://custom-agent.example.com"
-        assert data["mcp"]["name"] == "custom-mcp"
+        assert data["mcp_servers"][0]["name"] == "custom-mcp"
 
 
 class TestA2AConfigAPI:
@@ -206,7 +211,7 @@ class TestMCPConfigAPI:
     """Tests for MCP configuration endpoints."""
 
     def test_update_mcp_config_saves_to_file(self, test_client):
-        """PUT /api/config/mcp should save MCP configuration to file."""
+        """PUT /api/config/mcp should save MCP configuration to file (updates first server)."""
         client, config_file, store = test_client
         
         new_config = {
@@ -223,8 +228,8 @@ class TestMCPConfigAPI:
         
         # Verify file was written
         saved_config = json.loads(config_file.read_text())
-        assert saved_config["mcp"]["name"] == "custom-mcp"
-        assert saved_config["mcp"]["url"] == "https://custom-mcp.example.com/"
+        assert saved_config["mcp_servers"][0]["name"] == "custom-mcp"
+        assert saved_config["mcp_servers"][0]["url"] == "https://custom-mcp.example.com/"
 
     def test_update_mcp_config_validates_url(self, test_client):
         """PUT /api/config/mcp should reject invalid URLs."""
@@ -313,7 +318,15 @@ class TestConfigReset:
         # First, create a config file
         config_data = {
             "a2a": {"url": "https://custom.com", "headers": {}, "is_local": False},
-            "mcp": {"name": "custom", "url": "https://mcp.com/", "headers": {}, "is_active": True},
+            "mcp_servers": [
+                {
+                    "id": "test-789",
+                    "name": "custom",
+                    "url": "https://mcp.com/",
+                    "headers": {},
+                    "is_active": True
+                }
+            ],
             "updated_at": "2025-01-12T10:00:00"
         }
         config_file.write_text(json.dumps(config_data))
@@ -364,7 +377,15 @@ class TestConfigPersistence:
         # Set initial config
         initial_config = {
             "a2a": {"url": "https://a2a.example.com", "headers": {}, "is_local": False},
-            "mcp": {"name": "orders", "url": "https://mcp.example.com/", "headers": {}, "is_active": True},
+            "mcp_servers": [
+                {
+                    "id": "test-123",
+                    "name": "orders",
+                    "url": "https://mcp.example.com/",
+                    "headers": {},
+                    "is_active": True
+                }
+            ],
             "updated_at": "2025-01-12T10:00:00"
         }
         config_file.write_text(json.dumps(initial_config))
@@ -375,7 +396,7 @@ class TestConfigPersistence:
         
         # MCP config should be preserved
         saved_config = json.loads(config_file.read_text())
-        assert saved_config["mcp"]["url"] == "https://mcp.example.com/"
+        assert saved_config["mcp_servers"][0]["url"] == "https://mcp.example.com/"
         assert saved_config["a2a"]["url"] == "https://new-a2a.example.com"
 
     def test_sensitive_headers_masked_in_response(self, test_client):
@@ -388,12 +409,15 @@ class TestConfigPersistence:
                 "headers": {"Authorization": "Bearer secret-token-12345"},
                 "is_local": False
             },
-            "mcp": {
-                "name": "orders",
-                "url": "https://mcp.example.com/",
-                "headers": {"client_secret": "super-secret-value"},
-                "is_active": True
-            },
+            "mcp_servers": [
+                {
+                    "id": "test-456",
+                    "name": "orders",
+                    "url": "https://mcp.example.com/",
+                    "headers": {"client_secret": "super-secret-value"},
+                    "is_active": True
+                }
+            ],
             "updated_at": "2025-01-12T10:00:00"
         }
         config_file.write_text(json.dumps(config_data))
@@ -447,3 +471,162 @@ class TestConfigValidation:
         
         response = client.put("/api/config/a2a", json=invalid_config)
         assert response.status_code == 422
+
+
+class TestMultiMCPServers:
+    """Tests for multiple MCP servers functionality."""
+
+    def test_add_mcp_server(self, test_client):
+        """POST /api/config/mcp should add a new MCP server."""
+        client, config_file, store = test_client
+        
+        new_server = {
+            "name": "inventory",
+            "url": "https://inventory-mcp.example.com/",
+            "headers": {"api_key": "test-key"}
+        }
+        
+        response = client.post("/api/config/mcp", json=new_server)
+        
+        assert response.status_code == 200
+        data = response.json()
+        assert data["status"] == "added"
+        
+        # Verify server was added
+        config_response = client.get("/api/config")
+        config = config_response.json()
+        assert len(config["mcp_servers"]) >= 1
+        inventory_server = next((s for s in config["mcp_servers"] if s["name"] == "inventory"), None)
+        assert inventory_server is not None
+        assert inventory_server["url"] == "https://inventory-mcp.example.com/"
+
+    def test_update_mcp_server(self, test_client):
+        """PUT /api/config/mcp/{server_id} should update an existing MCP server."""
+        client, config_file, store = test_client
+        
+        # First, get the default config to get server ID
+        config_response = client.get("/api/config")
+        config = config_response.json()
+        server_id = config["mcp_servers"][0]["id"]
+        
+        # Update the server
+        updates = {
+            "name": "updated-orders",
+            "is_active": False
+        }
+        
+        response = client.put(f"/api/config/mcp/{server_id}", json=updates)
+        
+        assert response.status_code == 200
+        data = response.json()
+        assert data["status"] == "updated"
+        
+        # Verify update
+        config_response = client.get("/api/config")
+        config = config_response.json()
+        updated_server = next((s for s in config["mcp_servers"] if s["id"] == server_id), None)
+        assert updated_server is not None
+        assert updated_server["name"] == "updated-orders"
+        assert updated_server["is_active"] is False
+
+    def test_delete_mcp_server(self, test_client):
+        """DELETE /api/config/mcp/{server_id} should delete an MCP server."""
+        client, config_file, store = test_client
+        
+        # First, add a server to delete
+        new_server = {
+            "name": "temp-server",
+            "url": "https://temp.example.com/",
+            "headers": {}
+        }
+        client.post("/api/config/mcp", json=new_server)
+        
+        # Get the server ID
+        config_response = client.get("/api/config")
+        config = config_response.json()
+        temp_server = next((s for s in config["mcp_servers"] if s["name"] == "temp-server"), None)
+        assert temp_server is not None
+        server_id = temp_server["id"]
+        
+        # Delete the server
+        response = client.delete(f"/api/config/mcp/{server_id}")
+        
+        assert response.status_code == 200
+        data = response.json()
+        assert data["status"] == "deleted"
+        
+        # Verify deletion
+        config_response = client.get("/api/config")
+        config = config_response.json()
+        deleted_server = next((s for s in config["mcp_servers"] if s["id"] == server_id), None)
+        assert deleted_server is None
+
+    def test_update_nonexistent_server_returns_404(self, test_client):
+        """Updating a non-existent server should return 404."""
+        client, config_file, store = test_client
+        
+        updates = {"name": "new-name"}
+        response = client.put("/api/config/mcp/nonexistent-id", json=updates)
+        
+        assert response.status_code == 404
+
+    def test_delete_nonexistent_server_returns_404(self, test_client):
+        """Deleting a non-existent server should return 404."""
+        client, config_file, store = test_client
+        
+        response = client.delete("/api/config/mcp/nonexistent-id")
+        
+        assert response.status_code == 404
+
+    def test_migration_from_single_to_multi_server(self, test_client):
+        """Old single-server config should be migrated to list format."""
+        client, config_file, store = test_client
+        
+        # Create old-style config with single 'mcp' field
+        old_config = {
+            "a2a": {"url": "http://localhost:8000", "headers": {}, "is_local": True},
+            "mcp": {
+                "name": "legacy-orders",
+                "url": "https://legacy-mcp.example.com/",
+                "headers": {"key": "value"},
+                "is_active": True
+            },
+            "updated_at": "2025-01-12T10:00:00"
+        }
+        config_file.write_text(json.dumps(old_config))
+        
+        # Load config (should trigger migration)
+        response = client.get("/api/config")
+        
+        assert response.status_code == 200
+        data = response.json()
+        
+        # Should have mcp_servers list instead of mcp
+        assert "mcp_servers" in data
+        assert isinstance(data["mcp_servers"], list)
+        assert len(data["mcp_servers"]) == 1
+        assert data["mcp_servers"][0]["name"] == "legacy-orders"
+        assert data["mcp_servers"][0]["url"] == "https://legacy-mcp.example.com/"
+        assert "id" in data["mcp_servers"][0]  # Should have generated ID
+
+    def test_multiple_active_servers(self, test_client):
+        """System should support multiple active MCP servers simultaneously."""
+        client, config_file, store = test_client
+        
+        # Add multiple servers
+        servers = [
+            {"name": "orders", "url": "https://orders.example.com/", "headers": {}},
+            {"name": "inventory", "url": "https://inventory.example.com/", "headers": {}},
+            {"name": "shipping", "url": "https://shipping.example.com/", "headers": {}},
+        ]
+        
+        for server in servers[1:]:  # First one is already there by default
+            client.post("/api/config/mcp", json=server)
+        
+        # Verify all servers are present and active
+        config_response = client.get("/api/config")
+        config = config_response.json()
+        
+        assert len(config["mcp_servers"]) >= 3
+        active_servers = [s for s in config["mcp_servers"] if s["is_active"]]
+        assert len(active_servers) >= 3

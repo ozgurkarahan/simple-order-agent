@@ -63,6 +63,7 @@ export interface A2AConfig {
 }
 
 export interface MCPServerConfig {
+  id: string;
   name: string;
   url: string;
   headers: Record<string, string>;
@@ -71,7 +72,7 @@ export interface MCPServerConfig {
 
 export interface AppConfig {
   a2a: A2AConfig;
-  mcp: MCPServerConfig;
+  mcp_servers: MCPServerConfig[];
   updated_at?: string;
 }
 
@@ -84,6 +85,19 @@ export interface MCPConfigUpdate {
   name: string;
   url: string;
   headers: Record<string, string>;
+}
+
+export interface MCPServerAdd {
+  name: string;
+  url: string;
+  headers: Record<string, string>;
+}
+
+export interface MCPServerUpdate {
+  name?: string;
+  url?: string;
+  headers?: Record<string, string>;
+  is_active?: boolean;
 }
 
 export interface ConnectionTestRequest {
@@ -107,6 +121,7 @@ export interface ConfigUpdateResponse {
   status: string;
   connection_test?: string;
   reload_required?: boolean;
+  server_id?: string;
 }
 
 export interface ConfigResetResponse {
@@ -315,6 +330,56 @@ export async function resetConfig(): Promise<ConfigResetResponse> {
   });
   if (!response.ok) {
     throw new Error("Failed to reset configuration");
+  }
+  return response.json();
+}
+
+/**
+ * Add a new MCP server.
+ */
+export async function addMCPServer(
+  server: MCPServerAdd
+): Promise<ConfigUpdateResponse> {
+  const response = await fetch(`${API_BASE}/api/config/mcp`, {
+    method: "POST",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify(server),
+  });
+  if (!response.ok) {
+    throw new Error("Failed to add MCP server");
+  }
+  return response.json();
+}
+
+/**
+ * Update an existing MCP server.
+ */
+export async function updateMCPServer(
+  serverId: string,
+  updates: MCPServerUpdate
+): Promise<ConfigUpdateResponse> {
+  const response = await fetch(`${API_BASE}/api/config/mcp/${serverId}`, {
+    method: "PUT",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify(updates),
+  });
+  if (!response.ok) {
+    throw new Error("Failed to update MCP server");
+  }
+  return response.json();
+}
+
+/**
+ * Delete an MCP server.
+ */
+export async function deleteMCPServer(
+  serverId: string
+): Promise<ConfigUpdateResponse> {
+  const response = await fetch(`${API_BASE}/api/config/mcp/${serverId}`, {
+    method: "DELETE",
+  });
+  if (!response.ok) {
+    throw new Error("Failed to delete MCP server");
   }
   return response.json();
 }

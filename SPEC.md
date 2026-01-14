@@ -150,7 +150,7 @@ Request:
 Response: { "status": "saved", "connection_test": "success" }
 
 PUT /api/config/mcp
-Request:
+Request (Legacy - updates first server):
 {
   "name": "custom-mcp",
   "url": "https://my-mcp-server.com/mcp/",
@@ -160,6 +160,27 @@ Request:
   }
 }
 Response: { "status": "saved", "reload_required": false }
+
+POST /api/config/mcp
+Request (Add new server):
+{
+  "name": "inventory",
+  "url": "https://inventory-mcp.com/",
+  "headers": { "api_key": "key123" }
+}
+Response: { "status": "added", "reload_required": false }
+
+PUT /api/config/mcp/{server_id}
+Request (Update existing server):
+{
+  "name": "updated-name",
+  "url": "https://new-url.com/",
+  "is_active": false
+}
+Response: { "status": "updated", "reload_required": false }
+
+DELETE /api/config/mcp/{server_id}
+Response: { "status": "deleted", "reload_required": false }
 
 POST /api/config/a2a/test
 Request: { "url": "https://...", "headers": {...} }
@@ -223,6 +244,7 @@ class A2AConfig(BaseModel):
 
 class MCPServerConfig(BaseModel):
     """MCP server configuration."""
+    id: str  # Unique identifier (auto-generated UUID)
     name: str
     url: str
     headers: dict[str, str] = {}
@@ -230,9 +252,8 @@ class MCPServerConfig(BaseModel):
 
 class AppConfig(BaseModel):
     """Complete application configuration."""
-    # No ID needed - single file
     a2a: A2AConfig
-    mcp: MCPServerConfig
+    mcp_servers: list[MCPServerConfig]  # List of MCP servers
     updated_at: datetime
 ```
 
@@ -249,18 +270,32 @@ The configuration is persisted in a JSON file for simplicity and human readabili
     "headers": {},
     "is_local": true
   },
-  "mcp": {
-    "name": "orders",
-    "url": "https://agent-network-ingress-gw-0zaqgg.lr8qeg.deu-c1.cloudhub.io/orders-mcp/",
-    "headers": {
-      "client_id": "xxx",
-      "client_secret": "xxx"
+  "mcp_servers": [
+    {
+      "id": "uuid-generated-123",
+      "name": "orders",
+      "url": "https://agent-network-ingress-gw-0zaqgg.lr8qeg.deu-c1.cloudhub.io/orders-mcp/",
+      "headers": {
+        "client_id": "xxx",
+        "client_secret": "xxx"
+      },
+      "is_active": true
     },
-    "is_active": true
-  },
+    {
+      "id": "uuid-generated-456",
+      "name": "inventory",
+      "url": "https://inventory-mcp.example.com/",
+      "headers": {
+        "api_key": "yyy"
+      },
+      "is_active": false
+    }
+  ],
   "updated_at": "2025-01-12T10:00:00Z"
 }
 ```
+
+**Migration Support**: The system automatically migrates old single-server configs (with `mcp` field) to the new list format (with `mcp_servers` field) on first load.
 
 ##### File Location
 
@@ -296,6 +331,28 @@ The Claude Agent SDK connects to the external MCP server using `.mcp.json` confi
 ##### Dynamic Configuration (New)
 
 When users configure MCP servers through the Settings page:
+
+1. **Configuration Builder**: The backend passes a list of active MCP servers to the Claude Agent SDK
+2. **Server Selection**: Only servers with `is_active: true` are included
+3. **Hot Reload**: When configuration changes, the agent is reinitialized with new servers
+4. **Multi-Server Support**: Agent can access tools from all active servers simultaneously
+
+```python
+# Example: Building options with multiple servers
+mcp_servers = {}
+for config in active_configs:
+    mcp_servers[config.name] = {
+        "type": "http",
+        "url": config.url,
+        "headers": config.headers
+    }
+
+options = ClaudeAgentOptions(
+    model="claude-sonnet-4-20250514",
+    mcp_servers=mcp_servers,  # Multiple servers
+    permission_mode="bypassPermissions"
+)
+```
 
 1. **Configuration Saved**: New MCP URL and headers stored in JSON config file
 2. **Agent Reload**: The Orders Agent is re-initialized with new MCP config
@@ -396,14 +453,20 @@ Layout
     │           ├── Authentication (type and credentials URL)
     │           ├── Links (agent URL and documentation)
     │           └── InputOutputModes
-    ├── MCPConfigSection
-    │   ├── ServerNameInput
-    │   ├── URLInput (with validation)
-    │   ├── HeadersEditor (key-value pairs)
-    │   ├── TestConnectionButton
-    │   └── ToolsList (if connected)
+    ├── MCPServersSection
+    │   ├── ServersList (shows all configured servers)
+    │   │   └── MCPServerCard (for each server)
+    │   │       ├── ServerHeader (name, active/inactive badge)
+    │   │       ├── ServerURL
+    │   │       ├── TestConnectionButton
+    │   │       ├── EditButton (inline editing)
+    │   │       └── DeleteButton
+    │   └── AddServerButton (+ Add MCP Server)
+    │       └── AddServerForm (shown when clicked)
+    │           ├── ServerNameInput
+    │           ├── URLInput (with validation)
+    │           └── HeadersEditor (key-value pairs)
     └── ActionButtons
-        ├── SaveButton
         └── ResetToDefaultsButton
 ```
 

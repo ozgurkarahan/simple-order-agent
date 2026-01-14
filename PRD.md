@@ -91,8 +91,10 @@ Currently, the frontend is tightly coupled to the local Orders Agent backend. Us
 - Connect to different A2A-compliant agents without code changes
 - Dynamically switch between MCP server configurations
 - Test external A2A agents they are developing
+- **Configure multiple MCP servers simultaneously**
+- **Enable/disable MCP servers without removing them**
 
-**Solution**: A configuration system that allows users to dynamically configure A2A agent connections and MCP servers through a dedicated settings page, with persistence in a JSON configuration file.
+**Solution**: A configuration system that allows users to dynamically configure A2A agent connections and multiple MCP servers through a dedicated settings page, with persistence in a JSON configuration file.
 
 ### User Stories
 
@@ -114,8 +116,12 @@ Currently, the frontend is tightly coupled to the local Orders Agent backend. Us
 | Settings Page | Dedicated `/settings` route for configuration management |
 | A2A Agent URL Config | Input field to set the A2A agent base URL |
 | A2A Custom Headers | Key-value input for optional authentication headers |
-| MCP Server URL Config | Input field to set the MCP server URL |
-| MCP Custom Headers | Key-value input for optional MCP authentication headers |
+| **Multiple MCP Servers** | Support for adding and managing multiple MCP servers |
+| **Add MCP Server** | Form to add new MCP servers with name, URL, and headers |
+| **Edit MCP Server** | Inline editing of server name, URL, headers |
+| **Delete MCP Server** | Remove MCP servers from configuration |
+| **Enable/Disable Servers** | Toggle server active status without deletion |
+| **MCP Server List View** | Display all configured servers with status indicators |
 | Configuration Persistence | Store configuration in JSON file |
 | Connection Status | Display current connection status in header |
 
@@ -124,8 +130,9 @@ Currently, the frontend is tightly coupled to the local Orders Agent backend. Us
 | Feature | Description |
 |---------|-------------|
 | Agent Card Display | Full agent card display with expandable UI showing skills, capabilities, authentication info, and documentation links |
-| Connection Test | Button to test connectivity before saving |
+| Connection Test | Button to test connectivity before saving (per server) |
 | MCP Tools Discovery | Display available tools from configured MCP server |
+| **Server Status in Popover** | Display all servers with active/inactive status in connectors popover |
 
 #### P2 (Nice to Have)
 

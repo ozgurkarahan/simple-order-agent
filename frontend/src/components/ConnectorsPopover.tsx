@@ -34,8 +34,9 @@ export function ConnectorsPopover({ className }: ConnectorsPopoverProps) {
     return () => document.removeEventListener("mousedown", handleClickOutside);
   }, []);
 
-  const mcpServer = config?.mcp;
-  const isConnected = mcpServer?.is_active ?? false;
+  const mcpServers = config?.mcp_servers || [];
+  const activeCount = mcpServers.filter(s => s.is_active).length;
+  const totalCount = mcpServers.length;
 
   return (
     <div ref={popoverRef} className={cn("relative", className)}>
@@ -52,7 +53,7 @@ export function ConnectorsPopover({ className }: ConnectorsPopoverProps) {
           M
         </span>
         <span className="hidden sm:inline text-muted-foreground">
-          {mcpServer?.name || "MCP"}
+          {activeCount} / {totalCount} MCP
         </span>
         <ChevronDown
           className={cn(
@@ -67,41 +68,46 @@ export function ConnectorsPopover({ className }: ConnectorsPopoverProps) {
         <div className="absolute bottom-full left-0 mb-2 w-72 bg-card rounded-xl border border-border shadow-lg animate-fade-in z-50">
           {/* Header */}
           <div className="px-4 py-3 border-b border-border">
-            <h3 className="font-medium text-sm">Connectors</h3>
+            <h3 className="font-medium text-sm">MCP Connectors</h3>
             <p className="text-xs text-muted-foreground mt-0.5">
-              MCP servers connected to this agent
+              {activeCount} of {totalCount} servers active
             </p>
           </div>
 
-          {/* MCP Server */}
-          <div className="p-2">
-            {mcpServer ? (
-              <div className="flex items-center gap-3 p-2 rounded-lg hover:bg-muted/50 transition-colors">
-                {/* Icon */}
-                <div className="w-8 h-8 rounded-lg bg-primary/10 flex items-center justify-center">
-                  <Server className="w-4 h-4 text-primary" />
-                </div>
-
-                {/* Info */}
-                <div className="flex-1 min-w-0">
-                  <p className="text-sm font-medium truncate">{mcpServer.name}</p>
-                  <p className="text-xs text-muted-foreground truncate">
-                    {mcpServer.url.replace(/^https?:\/\//, "").split("/")[0]}
-                  </p>
-                </div>
-
-                {/* Status indicator */}
+          {/* MCP Servers List */}
+          <div className="p-2 max-h-80 overflow-y-auto">
+            {mcpServers.length > 0 ? (
+              mcpServers.map((server) => (
                 <div
-                  className={cn(
-                    "w-2 h-2 rounded-full",
-                    isConnected ? "bg-green-500" : "bg-muted-foreground"
-                  )}
-                  title={isConnected ? "Connected" : "Inactive"}
-                />
-              </div>
+                  key={server.id}
+                  className="flex items-center gap-3 p-2 rounded-lg hover:bg-muted/50 transition-colors"
+                >
+                  {/* Icon */}
+                  <div className="w-8 h-8 rounded-lg bg-orange-500/10 flex items-center justify-center">
+                    <Server className="w-4 h-4 text-orange-500" />
+                  </div>
+
+                  {/* Info */}
+                  <div className="flex-1 min-w-0">
+                    <p className="text-sm font-medium truncate">{server.name}</p>
+                    <p className="text-xs text-muted-foreground truncate">
+                      {server.url.replace(/^https?:\/\//, "").split("/")[0]}
+                    </p>
+                  </div>
+
+                  {/* Status indicator */}
+                  <div
+                    className={cn(
+                      "w-2 h-2 rounded-full",
+                      server.is_active ? "bg-green-500" : "bg-muted-foreground"
+                    )}
+                    title={server.is_active ? "Active" : "Inactive"}
+                  />
+                </div>
+              ))
             ) : (
               <div className="p-4 text-center">
-                <p className="text-sm text-muted-foreground">No MCP server configured</p>
+                <p className="text-sm text-muted-foreground">No MCP servers configured</p>
               </div>
             )}
           </div>

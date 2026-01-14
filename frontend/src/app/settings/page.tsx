@@ -15,15 +15,20 @@ import {
   Loader2,
   RotateCcw,
   Save,
+  Edit2,
+  Trash2,
 } from "lucide-react";
 import {
   fetchConfig,
   updateA2AConfig,
-  updateMCPConfig,
+  addMCPServer,
+  updateMCPServer,
+  deleteMCPServer,
   testA2AConnection,
   testMCPConnection,
   resetConfig,
   type AppConfig,
+  type MCPServerConfig,
   type A2ATestResponse,
   type MCPTestResponse,
   type AgentCard,
@@ -123,6 +128,150 @@ function HeadersEditor({
   );
 }
 
+interface MCPServerCardProps {
+  server: MCPServerConfig;
+  onTest: () => void;
+  onUpdate: (updates: { name?: string; url?: string; headers?: Record<string, string>; is_active?: boolean }) => void;
+  onDelete: () => void;
+  testResult: MCPTestResponse | null;
+  isTestPending: boolean;
+}
+
+function MCPServerCard({ server, onTest, onUpdate, onDelete, testResult, isTestPending }: MCPServerCardProps) {
+  const [isEditing, setIsEditing] = useState(false);
+  const [name, setName] = useState(server.name);
+  const [url, setUrl] = useState(server.url);
+  const [headers, setHeaders] = useState(server.headers);
+
+  const handleSave = () => {
+    onUpdate({ name, url, headers });
+    setIsEditing(false);
+  };
+
+  const handleCancel = () => {
+    setName(server.name);
+    setUrl(server.url);
+    setHeaders(server.headers);
+    setIsEditing(false);
+  };
+
+  return (
+    <div className="bg-card rounded-xl border border-border p-4 space-y-4">
+      <div className="flex items-center justify-between">
+        <div className="flex items-center gap-3">
+          <div className="w-10 h-10 rounded-lg bg-orange-500/10 flex items-center justify-center">
+            <Server className="w-5 h-5 text-orange-500" />
+          </div>
+          {isEditing ? (
+            <input
+              type="text"
+              value={name}
+              onChange={(e) => setName(e.target.value)}
+              className="px-3 py-1 bg-background border border-border rounded-lg text-sm font-semibold focus:outline-none focus:ring-2 focus:ring-primary/50"
+            />
+          ) : (
+            <h3 className="font-semibold">{server.name}</h3>
+          )}
+        </div>
+        <div className="flex items-center gap-2">
+          <button
+            onClick={() => onUpdate({ is_active: !server.is_active })}
+            className={`px-3 py-1 rounded-lg text-xs font-medium transition-colors ${
+              server.is_active
+                ? "bg-green-500/10 text-green-500 hover:bg-green-500/20"
+                : "bg-muted text-muted-foreground hover:bg-muted/80"
+            }`}
+          >
+            {server.is_active ? "Active" : "Inactive"}
+          </button>
+          {!isEditing && (
+            <>
+              <button
+                onClick={() => setIsEditing(true)}
+                className="p-2 text-muted-foreground hover:text-foreground transition-colors"
+                aria-label="Edit server"
+              >
+                <Edit2 className="w-4 h-4" />
+              </button>
+              <button
+                onClick={onDelete}
+                className="p-2 text-muted-foreground hover:text-destructive transition-colors"
+                aria-label="Delete server"
+              >
+                <Trash2 className="w-4 h-4" />
+              </button>
+            </>
+          )}
+        </div>
+      </div>
+
+      {isEditing ? (
+        <div className="space-y-4">
+          <div>
+            <label className="text-sm font-medium text-muted-foreground">Server URL</label>
+            <input
+              type="url"
+              value={url}
+              onChange={(e) => setUrl(e.target.value)}
+              placeholder="https://..."
+              className="mt-1 w-full px-3 py-2 bg-background border border-border rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-primary/50"
+            />
+          </div>
+          <HeadersEditor headers={headers} onChange={setHeaders} />
+          <div className="flex items-center gap-2 justify-end">
+            <button
+              onClick={handleCancel}
+              className="px-4 py-2 text-sm text-muted-foreground hover:text-foreground transition-colors"
+            >
+              Cancel
+            </button>
+            <button
+              onClick={handleSave}
+              className="flex items-center gap-2 px-4 py-2 bg-primary text-primary-foreground rounded-lg hover:bg-primary/90 transition-colors"
+            >
+              <Save className="w-4 h-4" />
+              Save Changes
+            </button>
+          </div>
+        </div>
+      ) : (
+        <div className="space-y-2">
+          <p className="text-sm text-muted-foreground truncate">{server.url}</p>
+          <div className="flex items-center gap-4">
+            <button
+              onClick={onTest}
+              disabled={isTestPending}
+              className="flex items-center gap-2 px-4 py-2 bg-secondary text-secondary-foreground rounded-lg hover:bg-secondary/80 transition-colors disabled:opacity-50"
+            >
+              {isTestPending ? (
+                <Loader2 className="w-4 h-4 animate-spin" />
+              ) : (
+                <Server className="w-4 h-4" />
+              )}
+              Test Connection
+            </button>
+            {testResult && (
+              <div className={`flex items-center gap-2 text-sm ${testResult.success ? "text-green-500" : "text-destructive"}`}>
+                {testResult.success ? (
+                  <>
+                    <Check className="w-4 h-4" />
+                    <span>{testResult.tools?.length || 0} tools available</span>
+                  </>
+                ) : (
+                  <>
+                    <AlertCircle className="w-4 h-4" />
+                    <span>{testResult.error}</span>
+                  </>
+                )}
+              </div>
+            )}
+          </div>
+        </div>
+      )}
+    </div>
+  );
+}
+
 export default function SettingsPage() {
   const router = useRouter();
   const queryClient = useQueryClient();
@@ -130,19 +279,19 @@ export default function SettingsPage() {
   // Form state
   const [a2aUrl, setA2aUrl] = useState("http://localhost:8000");
   const [a2aHeaders, setA2aHeaders] = useState<Record<string, string>>({});
-  const [mcpName, setMcpName] = useState("orders");
-  const [mcpUrl, setMcpUrl] = useState("");
-  const [mcpHeaders, setMcpHeaders] = useState<Record<string, string>>({});
+  
+  // Add new server form
+  const [showAddServer, setShowAddServer] = useState(false);
+  const [newServerName, setNewServerName] = useState("");
+  const [newServerUrl, setNewServerUrl] = useState("");
+  const [newServerHeaders, setNewServerHeaders] = useState<Record<string, string>>({});
 
   // Test results
   const [a2aTestResult, setA2aTestResult] = useState<A2ATestResponse | null>(null);
-  const [mcpTestResult, setMcpTestResult] = useState<MCPTestResponse | null>(null);
+  const [mcpTestResults, setMcpTestResults] = useState<Record<string, MCPTestResponse>>({});
   
   // Agent card state
   const [agentCard, setAgentCard] = useState<AgentCard | null>(null);
-
-  // Save status
-  const [saveStatus, setSaveStatus] = useState<"idle" | "saving" | "saved" | "error">("idle");
 
   // Fetch config
   const { data: config, isLoading, error } = useQuery({
@@ -156,19 +305,35 @@ export default function SettingsPage() {
     if (config) {
       setA2aUrl(config.a2a.url);
       setA2aHeaders(config.a2a.headers);
-      setMcpName(config.mcp.name);
-      setMcpUrl(config.mcp.url);
-      setMcpHeaders(config.mcp.headers);
     }
   }, [config]);
 
   // Mutations
   const updateA2AMutation = useMutation({
     mutationFn: updateA2AConfig,
+    onSuccess: () => queryClient.invalidateQueries({ queryKey: ["config"] }),
   });
 
-  const updateMCPMutation = useMutation({
-    mutationFn: updateMCPConfig,
+  const addServerMutation = useMutation({
+    mutationFn: addMCPServer,
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ["config"] });
+      setShowAddServer(false);
+      setNewServerName("");
+      setNewServerUrl("");
+      setNewServerHeaders({});
+    },
+  });
+
+  const updateServerMutation = useMutation({
+    mutationFn: ({ serverId, updates }: { serverId: string; updates: any }) =>
+      updateMCPServer(serverId, updates),
+    onSuccess: () => queryClient.invalidateQueries({ queryKey: ["config"] }),
+  });
+
+  const deleteServerMutation = useMutation({
+    mutationFn: deleteMCPServer,
+    onSuccess: () => queryClient.invalidateQueries({ queryKey: ["config"] }),
   });
 
   const testA2AMutation = useMutation({
@@ -184,8 +349,11 @@ export default function SettingsPage() {
   });
 
   const testMCPMutation = useMutation({
-    mutationFn: testMCPConnection,
-    onSuccess: (data) => setMcpTestResult(data),
+    mutationFn: ({ serverId, config }: { serverId: string; config: { url: string; headers: Record<string, string> } }) =>
+      testMCPConnection(config),
+    onSuccess: (data, variables) => {
+      setMcpTestResults(prev => ({ ...prev, [variables.serverId]: data }));
+    },
   });
 
   const resetMutation = useMutation({
@@ -193,7 +361,7 @@ export default function SettingsPage() {
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ["config"] });
       setA2aTestResult(null);
-      setMcpTestResult(null);
+      setMcpTestResults({});
       setAgentCard(null);
     },
   });
@@ -204,23 +372,16 @@ export default function SettingsPage() {
     testA2AMutation.mutate({ url: a2aUrl, headers: a2aHeaders });
   };
 
-  const handleTestMCP = () => {
-    setMcpTestResult(null);
-    testMCPMutation.mutate({ url: mcpUrl, headers: mcpHeaders });
+  const handleSaveA2A = async () => {
+    await updateA2AMutation.mutateAsync({ url: a2aUrl, headers: a2aHeaders });
   };
 
-  const handleSave = async () => {
-    setSaveStatus("saving");
-    try {
-      await updateA2AMutation.mutateAsync({ url: a2aUrl, headers: a2aHeaders });
-      await updateMCPMutation.mutateAsync({ name: mcpName, url: mcpUrl, headers: mcpHeaders });
-      setSaveStatus("saved");
-      queryClient.invalidateQueries({ queryKey: ["config"] });
-      setTimeout(() => setSaveStatus("idle"), 2000);
-    } catch {
-      setSaveStatus("error");
-      setTimeout(() => setSaveStatus("idle"), 3000);
-    }
+  const handleAddServer = () => {
+    addServerMutation.mutate({
+      name: newServerName,
+      url: newServerUrl,
+      headers: newServerHeaders,
+    });
   };
 
   const handleReset = () => {
@@ -248,6 +409,9 @@ export default function SettingsPage() {
       </div>
     );
   }
+
+  const mcpServers = config?.mcp_servers || [];
+  const activeCount = mcpServers.filter(s => s.is_active).length;
 
   return (
     <div className="min-h-screen bg-background">
@@ -315,6 +479,19 @@ export default function SettingsPage() {
                 Test Connection
               </button>
 
+              <button
+                onClick={handleSaveA2A}
+                disabled={updateA2AMutation.isPending}
+                className="flex items-center gap-2 px-4 py-2 bg-primary text-primary-foreground rounded-lg hover:bg-primary/90 transition-colors disabled:opacity-50"
+              >
+                {updateA2AMutation.isPending ? (
+                  <Loader2 className="w-4 h-4 animate-spin" />
+                ) : (
+                  <Save className="w-4 h-4" />
+                )}
+                Save
+              </button>
+
               {a2aTestResult && (
                 <div className={`flex items-center gap-2 text-sm ${a2aTestResult.success ? "text-green-500" : "text-destructive"}`}>
                   {a2aTestResult.success ? (
@@ -343,81 +520,89 @@ export default function SettingsPage() {
           </div>
         </section>
 
-        {/* MCP Server Configuration */}
+        {/* MCP Servers Configuration */}
         <section className="bg-card rounded-xl border border-border p-6 space-y-6">
-          <div className="flex items-center gap-3">
-            <div className="w-10 h-10 rounded-lg bg-orange-500/10 flex items-center justify-center">
-              <Server className="w-5 h-5 text-orange-500" />
-            </div>
-            <div>
-              <h2 className="font-semibold">MCP Server Configuration</h2>
-              <p className="text-sm text-muted-foreground">
-                Configure the MCP server for order data
-              </p>
+          <div className="flex items-center justify-between">
+            <div className="flex items-center gap-3">
+              <div className="w-10 h-10 rounded-lg bg-orange-500/10 flex items-center justify-center">
+                <Server className="w-5 h-5 text-orange-500" />
+              </div>
+              <div>
+                <h2 className="font-semibold">MCP Servers ({activeCount} active)</h2>
+                <p className="text-sm text-muted-foreground">
+                  Configure MCP servers for order data and tools
+                </p>
+              </div>
             </div>
           </div>
 
           <div className="space-y-4">
-            <div>
-              <label htmlFor="mcp-name" className="text-sm font-medium text-muted-foreground">
-                Server Name
-              </label>
-              <input
-                id="mcp-name"
-                type="text"
-                value={mcpName}
-                onChange={(e) => setMcpName(e.target.value)}
-                placeholder="orders"
-                className="mt-1 w-full px-3 py-2 bg-background border border-border rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-primary/50"
+            {mcpServers.map((server) => (
+              <MCPServerCard
+                key={server.id}
+                server={server}
+                onTest={() => testMCPMutation.mutate({ serverId: server.id, config: { url: server.url, headers: server.headers } })}
+                onUpdate={(updates) => updateServerMutation.mutate({ serverId: server.id, updates })}
+                onDelete={() => deleteServerMutation.mutate(server.id)}
+                testResult={mcpTestResults[server.id] || null}
+                isTestPending={testMCPMutation.isPending}
               />
-            </div>
+            ))}
 
-            <div>
-              <label htmlFor="mcp-url" className="text-sm font-medium text-muted-foreground">
-                Server URL
-              </label>
-              <input
-                id="mcp-url"
-                type="url"
-                value={mcpUrl}
-                onChange={(e) => setMcpUrl(e.target.value)}
-                placeholder="https://..."
-                className="mt-1 w-full px-3 py-2 bg-background border border-border rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-primary/50"
-              />
-            </div>
-
-            <HeadersEditor headers={mcpHeaders} onChange={setMcpHeaders} />
-
-            <div className="flex items-center gap-4">
-              <button
-                onClick={handleTestMCP}
-                disabled={testMCPMutation.isPending}
-                className="flex items-center gap-2 px-4 py-2 bg-secondary text-secondary-foreground rounded-lg hover:bg-secondary/80 transition-colors disabled:opacity-50"
-              >
-                {testMCPMutation.isPending ? (
-                  <Loader2 className="w-4 h-4 animate-spin" />
-                ) : (
-                  <Server className="w-4 h-4" />
-                )}
-                Test Connection
-              </button>
-
-              {mcpTestResult && (
-                <div className={`flex items-center gap-2 text-sm ${mcpTestResult.success ? "text-green-500" : "text-destructive"}`}>
-                  {mcpTestResult.success ? (
-                    <>
-                      <Check className="w-4 h-4" />
-                      <span>{mcpTestResult.tools?.length || 0} tools available</span>
-                    </>
-                  ) : (
-                    <>
-                      <AlertCircle className="w-4 h-4" />
-                      <span>{mcpTestResult.error}</span>
-                    </>
-                  )}
+            {showAddServer ? (
+              <div className="bg-muted/50 rounded-xl border border-border p-4 space-y-4">
+                <h3 className="font-semibold">Add New MCP Server</h3>
+                <div>
+                  <label className="text-sm font-medium text-muted-foreground">Server Name</label>
+                  <input
+                    type="text"
+                    value={newServerName}
+                    onChange={(e) => setNewServerName(e.target.value)}
+                    placeholder="inventory"
+                    className="mt-1 w-full px-3 py-2 bg-background border border-border rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-primary/50"
+                  />
                 </div>
-              )}
-            </div>
+                <div>
+                  <label className="text-sm font-medium text-muted-foreground">Server URL</label>
+                  <input
+                    type="url"
+                    value={newServerUrl}
+                    onChange={(e) => setNewServerUrl(e.target.value)}
+                    placeholder="https://..."
+                    className="mt-1 w-full px-3 py-2 bg-background border border-border rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-primary/50"
+                  />
+                </div>
+                <HeadersEditor headers={newServerHeaders} onChange={setNewServerHeaders} />
+                <div className="flex items-center gap-2 justify-end">
+                  <button
+                    onClick={() => setShowAddServer(false)}
+                    className="px-4 py-2 text-sm text-muted-foreground hover:text-foreground transition-colors"
+                  >
+                    Cancel
+                  </button>
+                  <button
+                    onClick={handleAddServer}
+                    disabled={!newServerName || !newServerUrl || addServerMutation.isPending}
+                    className="flex items-center gap-2 px-4 py-2 bg-primary text-primary-foreground rounded-lg hover:bg-primary/90 transition-colors disabled:opacity-50"
+                  >
+                    {addServerMutation.isPending ? (
+                      <Loader2 className="w-4 h-4 animate-spin" />
+                    ) : (
+                      <Plus className="w-4 h-4" />
+                    )}
+                    Add Server
+                  </button>
+                </div>
+              </div>
+            ) : (
+              <button
+                onClick={() => setShowAddServer(true)}
+                className="w-full flex items-center justify-center gap-2 px-4 py-3 border-2 border-dashed border-border rounded-xl text-muted-foreground hover:text-foreground hover:border-primary/50 transition-colors"
+              >
+                <Plus className="w-5 h-5" />
+                <span>Add MCP Server</span>
+              </button>
+            )}
           </div>
         </section>
 
@@ -434,40 +619,6 @@ export default function SettingsPage() {
               <RotateCcw className="w-4 h-4" />
             )}
             Reset to Defaults
-          </button>
-
-          <button
-            onClick={handleSave}
-            disabled={saveStatus === "saving"}
-            className={`flex items-center gap-2 px-6 py-2 rounded-lg font-medium transition-colors ${
-              saveStatus === "saved"
-                ? "bg-green-500 text-white"
-                : saveStatus === "error"
-                ? "bg-destructive text-destructive-foreground"
-                : "bg-primary text-primary-foreground hover:bg-primary/90"
-            } disabled:opacity-50`}
-          >
-            {saveStatus === "saving" ? (
-              <>
-                <Loader2 className="w-4 h-4 animate-spin" />
-                Saving...
-              </>
-            ) : saveStatus === "saved" ? (
-              <>
-                <Check className="w-4 h-4" />
-                Saved!
-              </>
-            ) : saveStatus === "error" ? (
-              <>
-                <AlertCircle className="w-4 h-4" />
-                Error
-              </>
-            ) : (
-              <>
-                <Save className="w-4 h-4" />
-                Save Configuration
-              </>
-            )}
           </button>
         </div>
       </main>
