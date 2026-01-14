@@ -73,7 +73,11 @@ class TaskState(str, Enum):
     """Possible states for an A2A task."""
 
     SUBMITTED = "submitted"
-    WORKING = "working"
+    PLANNING = "planning"
+    AWAITING_APPROVAL = "awaiting-approval"
+    EXECUTING = "executing"
+    PAUSED = "paused"
+    WORKING = "working"  # Legacy state, kept for backwards compatibility
     INPUT_REQUIRED = "input-required"
     COMPLETED = "completed"
     CANCELED = "canceled"
@@ -86,6 +90,45 @@ class TaskStatus(BaseModel):
     state: TaskState
     message: str | None = None
     timestamp: datetime = Field(default_factory=datetime.utcnow)
+
+
+class TaskItemStatus(str, Enum):
+    """Status of individual task items in a plan."""
+
+    PENDING = "pending"
+    IN_PROGRESS = "in_progress"
+    COMPLETED = "completed"
+    FAILED = "failed"
+    SKIPPED = "skipped"
+
+
+class TaskItem(BaseModel):
+    """An individual task within a phase."""
+
+    id: str
+    description: str
+    status: TaskItemStatus = TaskItemStatus.PENDING
+    error: str | None = None
+
+
+class Phase(BaseModel):
+    """A phase containing multiple related tasks."""
+
+    id: str
+    name: str
+    description: str | None = None
+    tasks: list[TaskItem]
+    status: TaskItemStatus = TaskItemStatus.PENDING
+
+
+class Plan(BaseModel):
+    """Execution plan with phases and tasks."""
+
+    id: str
+    description: str
+    phases: list[Phase]
+    created_at: datetime = Field(default_factory=datetime.utcnow, alias="createdAt")
+    approved_at: datetime | None = Field(default=None, alias="approvedAt")
 
 
 class Part(BaseModel):
@@ -119,11 +162,12 @@ class Task(BaseModel):
     """
     An A2A task representing a unit of work.
 
-    Tasks go through a lifecycle: submitted -> working -> completed/failed/canceled
+    Tasks go through a lifecycle: submitted -> planning -> awaiting-approval -> executing -> completed/failed/canceled
     """
 
     id: str
     status: TaskStatus
+    plan: Plan | None = None
     artifacts: list[Artifact] | None = None
     history: list[Message] | None = None
     metadata: dict[str, Any] | None = None
@@ -147,11 +191,24 @@ class SendMessageRequest(BaseModel):
     message: Message
 
 
+class ApprovePlanRequest(BaseModel):
+    """Request to approve a task plan."""
+
+    approved: bool = True
+
+
+class RejectPlanRequest(BaseModel):
+    """Request to reject a task plan with feedback."""
+
+    feedback: str
+
+
 class TaskStatusUpdate(BaseModel):
     """A status update event for SSE streaming."""
 
     task_id: str = Field(alias="taskId")
     status: TaskStatus
+    plan: Plan | None = None
     artifact: Artifact | None = None
     message: Message | None = None
 

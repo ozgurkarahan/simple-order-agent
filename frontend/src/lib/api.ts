@@ -471,3 +471,110 @@ export async function deleteConversation(conversationId: string): Promise<void> 
     throw new Error(`Failed to delete conversation: ${response.status}`);
   }
 }
+
+// A2A Task API Functions (for planning-first flow)
+
+export interface Plan {
+  id: string;
+  description: string;
+  phases: Phase[];
+  createdAt: string;
+  approvedAt?: string;
+}
+
+export interface Phase {
+  id: string;
+  name: string;
+  description?: string;
+  tasks: TaskItem[];
+  status: 'pending' | 'in_progress' | 'completed' | 'failed' | 'skipped';
+}
+
+export interface TaskItem {
+  id: string;
+  description: string;
+  status: 'pending' | 'in_progress' | 'completed' | 'failed' | 'skipped';
+  error?: string;
+}
+
+export interface Task {
+  id: string;
+  status: {
+    state: string;
+    message?: string;
+    timestamp: string;
+  };
+  plan?: Plan;
+  artifacts?: unknown[];
+  history?: unknown[];
+  metadata?: Record<string, unknown>;
+}
+
+/**
+ * Approve a task plan.
+ */
+export async function approvePlan(taskId: string): Promise<Task> {
+  const response = await fetch(`${API_BASE}/a2a/tasks/${taskId}/approve`, {
+    method: "POST",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify({ approved: true }),
+  });
+  if (!response.ok) {
+    throw new Error(`Failed to approve plan: ${response.status}`);
+  }
+  return response.json();
+}
+
+/**
+ * Reject a task plan with feedback.
+ */
+export async function rejectPlan(taskId: string, feedback: string): Promise<Task> {
+  const response = await fetch(`${API_BASE}/a2a/tasks/${taskId}/reject`, {
+    method: "POST",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify({ feedback }),
+  });
+  if (!response.ok) {
+    throw new Error(`Failed to reject plan: ${response.status}`);
+  }
+  return response.json();
+}
+
+/**
+ * Pause a task.
+ */
+export async function pauseTask(taskId: string): Promise<Task> {
+  const response = await fetch(`${API_BASE}/a2a/tasks/${taskId}/pause`, {
+    method: "POST",
+  });
+  if (!response.ok) {
+    throw new Error(`Failed to pause task: ${response.status}`);
+  }
+  return response.json();
+}
+
+/**
+ * Resume a paused task.
+ */
+export async function resumeTask(taskId: string): Promise<Task> {
+  const response = await fetch(`${API_BASE}/a2a/tasks/${taskId}/resume`, {
+    method: "POST",
+  });
+  if (!response.ok) {
+    throw new Error(`Failed to resume task: ${response.status}`);
+  }
+  return response.json();
+}
+
+/**
+ * Cancel a task.
+ */
+export async function cancelTask(taskId: string): Promise<Task> {
+  const response = await fetch(`${API_BASE}/a2a/tasks/${taskId}/cancel`, {
+    method: "POST",
+  });
+  if (!response.ok) {
+    throw new Error(`Failed to cancel task: ${response.status}`);
+  }
+  return response.json();
+}

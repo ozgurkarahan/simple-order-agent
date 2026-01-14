@@ -46,6 +46,79 @@ For order creation:
 
 Be conversational but concise. Focus on delivering value through actionable insights."""
 
+# Planning prompt for generating execution plans
+PLANNING_PROMPT = """You are an expert task planner. Your job is to analyze a user request and create a detailed execution plan.
+
+Given a user request, you must generate a structured plan with the following format:
+
+{
+  "description": "Brief summary of what will be accomplished",
+  "phases": [
+    {
+      "id": "phase_1",
+      "name": "Data Collection",
+      "description": "Gather required data",
+      "tasks": [
+        {
+          "id": "task_1_1",
+          "description": "Call get-all-orders tool to retrieve orders"
+        },
+        {
+          "id": "task_1_2",
+          "description": "Validate data completeness"
+        }
+      ]
+    },
+    {
+      "id": "phase_2",
+      "name": "Analysis",
+      "description": "Process and analyze the data",
+      "tasks": [
+        {
+          "id": "task_2_1",
+          "description": "Calculate total revenue per customer"
+        },
+        {
+          "id": "task_2_2",
+          "description": "Sort customers by spending"
+        },
+        {
+          "id": "task_2_3",
+          "description": "Identify top 5 customers"
+        }
+      ]
+    },
+    {
+      "id": "phase_3",
+      "name": "Presentation",
+      "description": "Format and present results",
+      "tasks": [
+        {
+          "id": "task_3_1",
+          "description": "Format results as a table"
+        },
+        {
+          "id": "task_3_2",
+          "description": "Present findings with key insights"
+        }
+      ]
+    }
+  ]
+}
+
+Guidelines for creating plans:
+1. **Group tasks into logical phases** - Data Collection, Analysis, Presentation, etc.
+2. **Be specific but concise** - Each task should be clear and actionable
+3. **Use mixed granularity** - Combine high-level goals with technical steps
+4. **Include all necessary steps** - Don't skip validation, formatting, or presentation
+5. **Order tasks logically** - Ensure dependencies are respected
+6. **Think about tools** - Mention which MCP tools will be used
+
+For simple requests (like "show me all orders"), create simpler plans with fewer phases.
+For complex requests (like "analyze trends and create a report"), create detailed multi-phase plans.
+
+Return ONLY valid JSON. No additional text or explanation."""
+
 class OrdersAgent:
     """
     Claude-powered agent for order analytics using External MCP Server.
@@ -232,3 +305,67 @@ class OrdersAgent:
         """Clear all conversation histories."""
         self.clients.clear()
         logger.info("Cleared all conversations")
+
+    async def generate_plan(self, message: str, conversation_id: str | None = None) -> dict[str, Any]:
+        """
+        Generate an execution plan for a user request.
+
+        Args:
+            message: User's request
+            conversation_id: Optional conversation ID for context
+
+        Returns:
+            Plan dictionary with description and phases
+        """
+        conv_id = conversation_id or "default"
+
+        # Create a temporary client for planning (doesn't maintain conversation history)
+        options = ClaudeAgentOptions(
+            model=self.model,
+            system_prompt=PLANNING_PROMPT,
+            permission_mode="bypassPermissions",
+            max_turns=1,  # Single turn for planning
+        )
+
+        try:
+            async with ClaudeSDKClient(options) as planning_client:
+                await planning_client.query(f"Create a plan for this request:\n\n{message}")
+
+                plan_text = []
+                async for event in planning_client.receive_response():
+                    if isinstance(event, AssistantMessage):
+                        for block in event.content:
+                            if hasattr(block, "text"):
+                                plan_text.append(block.text)
+
+                # Parse the JSON plan
+                full_text = "".join(plan_text)
+                # Extract JSON from potential markdown code blocks
+                if "```json" in full_text:
+                    full_text = full_text.split("```json")[1].split("```")[0]
+                elif "```" in full_text:
+                    full_text = full_text.split("```")[1].split("```")[0]
+
+                plan = json.loads(full_text.strip())
+                logger.info(f"Generated plan with {len(plan.get('phases', []))} phases")
+                return plan
+
+        except Exception as e:
+            logger.error(f"Plan generation error: {e}")
+            # Return a simple fallback plan
+            return {
+                "description": "Execute the requested task",
+                "phases": [
+                    {
+                        "id": "phase_1",
+                        "name": "Execution",
+                        "description": "Process the request",
+                        "tasks": [
+                            {
+                                "id": "task_1_1",
+                                "description": message
+                            }
+                        ]
+                    }
+                ]
+            }
