@@ -4,7 +4,7 @@ from datetime import datetime
 from enum import Enum
 from typing import Any
 
-from pydantic import BaseModel, Field
+from pydantic import BaseModel, ConfigDict, Field
 
 # ============================================================================
 # Agent Card Models
@@ -205,6 +205,8 @@ class RejectPlanRequest(BaseModel):
 
 class TaskStatusUpdate(BaseModel):
     """A status update event for SSE streaming."""
+
+    model_config = ConfigDict(populate_by_name=True)
 
     task_id: str = Field(alias="taskId")
     status: TaskStatus
