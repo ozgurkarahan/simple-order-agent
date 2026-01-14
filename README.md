@@ -11,6 +11,7 @@ A **learning project** to explore the integration of a MuleSoft MCP server with 
 
 - **Natural Language Chat**: Ask questions about orders in plain English
 - **Real-time Streaming**: See responses as they're generated
+- **Multi-Conversation Support**: Create and manage multiple separate conversation threads
 - **A2A Protocol Support**: Discoverable and callable by other AI agents
 - **MCP Integration**: Connects to external Orders MCP server
 - **Dynamic Configuration**: Configure A2A agents and MCP servers via Settings page
@@ -104,6 +105,38 @@ npm run dev
 Open [http://localhost:3000](http://localhost:3000) to access the chat interface.
 
 </details>
+
+## Using Multiple Conversations
+
+The dashboard supports multiple conversation threads to help you organize different tasks:
+
+### Creating Conversations
+
+1. Click the **sidebar toggle button** (top-left corner) to open the conversation list
+2. Click **"New Conversation"** to start a fresh conversation
+3. Your first message automatically becomes the conversation title (truncated to 50 characters)
+
+### Managing Conversations
+
+- **Switch conversations**: Click any conversation in the sidebar to activate it
+- **Rename conversations**: Click the edit icon (✏️) next to a conversation, type the new name, and press Enter or click the checkmark
+- **Delete conversations**: Click the trash icon (🗑️) and confirm deletion
+- **View metadata**: Each conversation shows when it was last updated and the message count
+
+### Keyboard & UI Tips
+
+- The **active conversation** is highlighted with a blue accent
+- Conversations are **sorted by most recent update** at the top
+- The sidebar **auto-hides on mobile** devices and can be toggled with the button
+- **Switching conversations** clears the current chat view and loads the selected conversation's context
+- Each conversation maintains its **own isolated history** with the AI agent
+
+### Conversation Persistence
+
+- All conversations are **automatically saved** to the backend
+- Conversations persist across browser sessions
+- The agent maintains separate context for each conversation
+- Deleting a conversation removes both the metadata and the conversation history
 
 ## Environment Variables
 
@@ -220,12 +253,15 @@ simple-order-agent/
 │   ├── .mcp.json       # MCP server configuration for Claude Agent SDK
 │   ├── agent/          # Claude agent configuration
 │   ├── a2a/            # A2A protocol implementation
-│   ├── api/            # Configuration API
-│   │   ├── config_models.py   # Configuration Pydantic models
-│   │   ├── config_store.py    # JSON file persistence
-│   │   └── config_router.py   # FastAPI routes
+│   ├── api/            # Configuration & Conversation APIs
+│   │   ├── config_models.py          # Configuration Pydantic models
+│   │   ├── config_store.py           # JSON file persistence
+│   │   ├── config_router.py          # Configuration FastAPI routes
+│   │   ├── conversation_models.py    # Conversation models & storage
+│   │   └── conversation_router.py    # Conversation FastAPI routes
 │   ├── data/           # Runtime data (gitignored)
-│   │   └── config.json # User configuration file
+│   │   ├── config.json         # User configuration file
+│   │   └── conversations.json  # Conversation metadata
 │   └── tests/          # Unit tests and evals
 │       ├── evals/      # Agent evaluation framework
 │       │   ├── dataset.json   # Eval test cases
@@ -245,6 +281,13 @@ simple-order-agent/
 
 ## Recent Changes
 
+- **Multi-Conversation Feature**: Create and manage multiple conversation threads
+  - Collapsible sidebar with conversation list
+  - Create, switch, rename, and delete conversations
+  - Auto-generate titles from first message
+  - Conversation metadata (timestamp, message count)
+  - Persistent storage in backend
+  - Each conversation maintains separate context with the AI agent
 - **ClaudeSDKClient Migration**: Improved conversation handling
   - Migrated from stateless `query()` to stateful `ClaudeSDKClient`
   - Conversations now properly maintain context across messages

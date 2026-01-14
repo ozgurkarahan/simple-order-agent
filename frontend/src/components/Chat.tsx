@@ -6,6 +6,7 @@ import { streamChat, type ChatMessage } from "@/lib/api";
 import { cn, formatDate, generateId } from "@/lib/utils";
 import { InputToolbar, type InputToolbarRef } from "./InputToolbar";
 import { ToolAccordion } from "./ToolAccordion";
+import { saveMessages, loadMessages } from "@/lib/conversation-storage";
 
 interface Message extends ChatMessage {
   id: string;
@@ -19,12 +20,17 @@ const QUICK_ACTIONS = [
   { label: "Create an order", query: "Help me create a new order" },
 ];
 
-export function Chat() {
+interface ChatProps {
+  conversationId: string | null;
+  onFirstMessage?: (message: string) => void;
+}
+
+export function Chat({ conversationId, onFirstMessage }: ChatProps) {
   const [messages, setMessages] = useState<Message[]>([]);
   const [isLoading, setIsLoading] = useState(false);
-  const [conversationId] = useState(() => generateId());
   const messagesEndRef = useRef<HTMLDivElement>(null);
   const inputRef = useRef<InputToolbarRef>(null);
+  const firstMessageSent = useRef(false);
 
   const scrollToBottom = () => {
     messagesEndRef.current?.scrollIntoView({ behavior: "smooth" });
@@ -33,6 +39,39 @@ export function Chat() {
   useEffect(() => {
     scrollToBottom();
   }, [messages]);
+
+  // Load messages when conversation changes
+  useEffect(() => {
+    if (conversationId) {
+      // Load messages from localStorage
+      const stored = loadMessages(conversationId);
+      const loadedMessages: Message[] = stored.map(msg => ({
+        ...msg,
+        timestamp: new Date(msg.timestamp),
+        isStreaming: false
+      }));
+      setMessages(loadedMessages);
+      firstMessageSent.current = loadedMessages.length > 0;
+    } else {
+      setMessages([]);
+      firstMessageSent.current = false;
+    }
+  }, [conversationId]);
+
+  // Save messages to localStorage whenever they change
+  useEffect(() => {
+    if (conversationId && messages.length > 0) {
+      const storedMessages = messages.map(msg => ({
+        id: msg.id,
+        role: msg.role,
+        content: msg.content,
+        timestamp: msg.timestamp.toISOString(),
+        toolUse: msg.toolUse,
+        toolResult: msg.toolResult
+      }));
+      saveMessages(conversationId, storedMessages);
+    }
+  }, [messages, conversationId]);
 
   const handleSubmit = async (text: string) => {
     if (!text.trim() || isLoading) return;
@@ -46,6 +85,12 @@ export function Chat() {
 
     setMessages((prev) => [...prev, userMessage]);
     setIsLoading(true);
+
+    // Notify parent about first message for title generation
+    if (!firstMessageSent.current && onFirstMessage) {
+      onFirstMessage(text.trim());
+      firstMessageSent.current = true;
+    }
 
     // Create placeholder for agent response
     const agentMessageId = generateId();

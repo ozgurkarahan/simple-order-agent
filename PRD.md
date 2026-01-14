@@ -65,7 +65,7 @@ Accessing and analyzing order data typically requires:
 | Feature | Description |
 |---------|-------------|
 | Analytics Charts | Visual representation of order trends |
-| Conversation History | Persist and recall past conversations |
+| **Multi-Conversation Support** | Create, manage, and switch between multiple conversation threads |
 | Quick Actions | Pre-built query buttons for common requests |
 | Streaming Responses | Real-time token streaming in UI |
 | Claude Desktop UI | Warm cream theme, serif headings, minimal design |
@@ -80,6 +80,79 @@ Accessing and analyzing order data typically requires:
 | Export Data | Download query results as CSV/JSON |
 | Dark Mode | Theme toggle for UI |
 | Multi-language | Support for non-English queries |
+
+---
+
+## Multi-Conversation Feature
+
+### Problem Statement
+
+Users need to maintain separate conversation contexts for different tasks or questions. Currently, all chat happens in a single continuous conversation, which makes it difficult to:
+- Start fresh on a new topic without losing context
+- Organize different analysis tasks separately
+- Return to previous conversations for reference
+- Keep track of multiple ongoing investigations
+
+**Solution**: A multi-conversation system that allows users to create, switch between, rename, and delete separate conversation threads, with each conversation maintaining its own history and context.
+
+### User Stories
+
+| ID | As a... | I want to... | So that... |
+|----|---------|--------------|------------|
+| MC1 | Business Analyst | Create multiple conversations | I can organize different analysis tasks separately |
+| MC2 | User | Switch between conversations | I can work on multiple topics without losing context |
+| MC3 | User | Rename conversations | I can easily identify and find specific conversations |
+| MC4 | User | Delete old conversations | I can clean up and remove conversations I no longer need |
+| MC5 | User | See conversation metadata | I know when a conversation was last updated and message count |
+
+### Multi-Conversation Features
+
+#### P0 (Must Have)
+
+| Feature | Description |
+|---------|-------------|
+| Conversation Sidebar | Collapsible sidebar displaying all conversations |
+| Create Conversation | Button to start a new empty conversation |
+| Switch Conversations | Click to activate and load a different conversation |
+| Auto-Title Generation | First user message (truncated to 50 chars) becomes the title |
+| Rename Conversation | Inline editing to change conversation title |
+| Delete Conversation | Remove conversation and clear its history |
+| Conversation Metadata | Display title, timestamp, and message count |
+| Conversation Persistence | Store conversations in backend JSON file |
+| Active Conversation Indicator | Highlight the currently active conversation |
+| Sidebar Toggle | Button to show/hide the sidebar |
+
+#### P1 (Should Have)
+
+| Feature | Description |
+|---------|-------------|
+| Keyboard Shortcuts | Quick keys for new conversation, navigation |
+| Conversation Search | Filter conversations by title |
+| Conversation Export | Download a conversation's full history |
+
+#### P2 (Nice to Have)
+
+| Feature | Description |
+|---------|-------------|
+| Conversation Tags | Organize conversations with custom tags |
+| Conversation Archive | Archive old conversations without deleting |
+| Shared Conversations | Share conversation links with team members |
+
+### Implementation Details
+
+**Backend:**
+- `ConversationMetadata` model with id, title, created_at, updated_at, message_count
+- `ConversationStore` class for JSON file-based storage
+- REST API endpoints: GET/POST/PUT/DELETE at `/api/conversations`
+- Auto-generate title from first message (max 50 chars)
+- Clear conversation history when deleted
+
+**Frontend:**
+- `ConversationSidebar` component with list and controls
+- Chat component accepts `conversationId` prop
+- Main page orchestrates sidebar + chat state
+- Create new conversation on app load if none exist
+- Clear messages when switching conversations
 
 ---
 
@@ -158,6 +231,8 @@ Currently, the frontend is tightly coupled to the local Orders Agent backend. Us
 | Config Save Success | 100% (valid configs) |
 | A2A Connection Success | >95% (valid URLs) |
 | MCP Hot-Reload Success | >99% |
+| Conversation Switch Time | <500ms |
+| Conversation Storage Reliability | 100% (no data loss) |
 
 ---
 
