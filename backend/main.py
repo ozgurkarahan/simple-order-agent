@@ -16,6 +16,7 @@ from fastapi.responses import StreamingResponse
 from pydantic import BaseModel
 
 from a2a import TaskManager, a2a_router, get_agent_card
+from a2a.models import Message, Part
 from agent import OrdersAgent
 from api import config_router, get_config_store
 from api.config_router import set_reload_agent_callback
@@ -146,37 +147,52 @@ async def agent_card() -> dict:
     return get_agent_card().model_dump(by_alias=True, exclude_none=True)
 
 
-# Chat endpoint with streaming
+# Chat endpoint with streaming (using TaskManager for planning-first flow)
 @app.post("/api/chat")
 async def chat(request: ChatRequest) -> StreamingResponse:
     """
     Chat endpoint for interacting with the Orders Agent.
 
+    Uses TaskManager to enable planning-first workflow:
+    1. Generate execution plan
+    2. Wait for user approval
+    3. Execute plan task-by-task
+    4. Stream progress updates
+
     Returns a streaming response with Server-Sent Events (SSE).
     """
-    if not orders_agent:
-        raise HTTPException(status_code=503, detail="Agent not initialized")
+    if not task_manager:
+        raise HTTPException(status_code=503, detail="Task manager not initialized")
 
     async def generate():
-        """Generate SSE events from agent response."""
+        """Generate SSE events from task manager."""
         try:
             conv_store = get_conversation_store()
             conv_id = request.conversation_id
-            
+
             # Track if this is the first message (for title generation)
             is_first_message = False
             if conv_id:
                 conv = conv_store.get_conversation(conv_id)
                 is_first_message = conv and conv.message_count == 0
-            
-            async for event in orders_agent.chat(
-                message=request.message,
-                conversation_id=request.conversation_id,
-            ):
-                yield f"event: {event['type']}\ndata: {event['data']}\n\n"
+
+            # Create a task using TaskManager (triggers planning flow)
+            task = await task_manager.create_task(
+                message=Message(
+                    role="user",
+                    parts=[Part(type="text", text=request.message)]
+                )
+            )
+
+            logger.info(f"Created task {task.id} for message: {request.message[:50]}...")
+
+            # Stream task events (includes planning, approval waiting, execution)
+            async for event in task_manager.stream_task(task.id):
+                # Forward the event to the frontend
+                yield f"event: {event['event']}\ndata: {event['data']}\n\n"
 
             yield "event: done\ndata: {}\n\n"
-            
+
             # Update conversation metadata after successful chat
             if conv_id:
                 # Generate title from first message (truncate to 50 chars)
