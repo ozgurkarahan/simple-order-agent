@@ -78,6 +78,10 @@ async def lifespan(app: FastAPI) -> AsyncGenerator[None, None]:
     yield
 
     # Cleanup
+    if orders_agent:
+        orders_agent.clear_all_conversations()
+        logger.info("Cleared all conversation clients")
+    
     logger.info("Shutting down Oz's Order Management Agent...")
 
 

@@ -122,6 +122,13 @@ Note: MCP server URL is configured in `backend/.mcp.json`
 
 ## Recent Changes
 
+- **Migrated to ClaudeSDKClient for Stateful Conversations**:
+  - Replaced stateless `query()` function with `ClaudeSDKClient` class
+  - Enables true multi-turn conversation support with automatic context management
+  - Added client lifecycle management with per-conversation instances
+  - Added `clear_conversation()` and `clear_all_conversations()` methods
+  - Conversation history now properly maintained by Claude Agent SDK
+  - Fixed bug where conversation history was collected but never used
 - **Agent Card Display Feature**: Full expandable agent card display in Settings page
   - Created `AgentCardDisplay.tsx` component with collapsible UI
   - Updated TypeScript types for full `AgentCard` structure with authentication and documentation fields

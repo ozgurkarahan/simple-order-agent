@@ -10,8 +10,8 @@ from typing import Any, TYPE_CHECKING
 from claude_agent_sdk import (
     AssistantMessage,
     ClaudeAgentOptions,
+    ClaudeSDKClient,
     ResultMessage,
-    query,
 )
 
 if TYPE_CHECKING:
@@ -78,7 +78,7 @@ class OrdersAgent:
         else:
             self.mcp_configs = []
         
-        self.conversations: dict[str, list[dict]] = {}
+        self.clients: dict[str, ClaudeSDKClient] = {}
 
         if self.mcp_configs:
             active_count = sum(1 for c in self.mcp_configs if c.is_active)
@@ -87,13 +87,21 @@ class OrdersAgent:
         else:
             logger.info(f"Orders Agent initialized with model: {model} using .mcp.json config")
 
-    def _get_conversation(self, conversation_id: str | None) -> list[dict]:
-        """Get or create conversation history."""
-        if not conversation_id:
-            return []
-        if conversation_id not in self.conversations:
-            self.conversations[conversation_id] = []
-        return self.conversations[conversation_id]
+    def _get_or_create_client(self, conversation_id: str) -> ClaudeSDKClient:
+        """
+        Get or create a ClaudeSDKClient for a conversation.
+        
+        Args:
+            conversation_id: Conversation ID
+            
+        Returns:
+            ClaudeSDKClient instance for this conversation
+        """
+        if conversation_id not in self.clients:
+            options = self._build_options()
+            self.clients[conversation_id] = ClaudeSDKClient(options)
+            logger.debug(f"Created new client for conversation: {conversation_id}")
+        return self.clients[conversation_id]
 
     def _build_options(self) -> ClaudeAgentOptions:
         """Build ClaudeAgentOptions with external MCP server configuration."""
@@ -140,38 +148,41 @@ class OrdersAgent:
         Yields:
             Event dictionaries with type and data for SSE streaming
         """
-        options = self._build_options()
+        # Use default conversation ID if none provided
+        conv_id = conversation_id or "default"
+        
+        # Get or create client for this conversation
+        client = self._get_or_create_client(conv_id)
 
         try:
-            async for event in query(prompt=message, options=options):
-                if isinstance(event, AssistantMessage):
-                    for block in event.content:
-                        if hasattr(block, "text"):
-                            yield {
-                                "type": "message",
-                                "data": json.dumps({"type": "text", "content": block.text}),
-                            }
-                        elif hasattr(block, "name"):
-                            yield {
-                                "type": "tool_use",
-                                "data": json.dumps({
+            # Send message and stream response
+            # ClaudeSDKClient automatically maintains conversation history
+            async with client:
+                await client.query(message)
+                async for event in client.receive_response():                    if isinstance(event, AssistantMessage):
+                        for block in event.content:
+                            if hasattr(block, "text"):
+                                yield {
+                                    "type": "message",
+                                    "data": json.dumps({"type": "text", "content": block.text}),
+                                }
+                            elif hasattr(block, "name"):
+                                yield {
                                     "type": "tool_use",
-                                    "tool": block.name,
-                                    "input": getattr(block, "input", {}),
-                                }),
+                                    "data": json.dumps({
+                                        "type": "tool_use",
+                                        "tool": block.name,
+                                        "input": getattr(block, "input", {}),
+                                    }),
+                                }
+
+                    elif isinstance(event, ResultMessage):
+                        # Emit tool result event
+                        if hasattr(event, "result") and event.result:
+                            yield {
+                                "type": "tool_result",
+                                "data": json.dumps({"result": str(event.result)}),
                             }
-
-                elif isinstance(event, ResultMessage):
-                    # Emit tool result event
-                    if hasattr(event, "result") and event.result:
-                        yield {
-                            "type": "tool_result",
-                            "data": json.dumps({"result": str(event.result)}),
-                        }
-
-            if conversation_id:
-                history = self._get_conversation(conversation_id)
-                history.append({"role": "user", "content": message})
 
         except Exception as e:
             logger.error(f"Chat error: {e}")
@@ -204,3 +215,19 @@ class OrdersAgent:
                     response_text.append(data["content"])
 
         return "\n".join(response_text)
+
+    def clear_conversation(self, conversation_id: str) -> None:
+        """
+        Clear conversation history by removing the client.
+        
+        Args:
+            conversation_id: Conversation ID to clear
+        """
+        if conversation_id in self.clients:
+            del self.clients[conversation_id]
+            logger.info(f"Cleared conversation: {conversation_id}")
+
+    def clear_all_conversations(self) -> None:
+        """Clear all conversation histories."""
+        self.clients.clear()
+        logger.info("Cleared all conversations")
