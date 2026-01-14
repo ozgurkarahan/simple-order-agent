@@ -10,6 +10,8 @@ from fastapi import APIRouter, HTTPException, Depends
 from api.config_models import (
     A2AConfigUpdate,
     MCPConfigUpdate,
+    MCPServerAdd,
+    MCPServerUpdate,
     ConnectionTestRequest,
     A2ATestResponse,
     MCPTestResponse,
@@ -376,6 +378,128 @@ async def test_mcp_connection(request: ConnectionTestRequest) -> MCPTestResponse
     except Exception as e:
         logger.error(f"MCP connection test failed: {e}")
         return MCPTestResponse(success=False, error=str(e))
+
+
+@config_router.post("/mcp")
+async def add_mcp_server(
+    config: MCPServerAdd,
+    store: ConfigStore = Depends(get_config_store)
+) -> ConfigUpdateResponse:
+    """
+    Add a new MCP server.
+    
+    Creates a new MCP server entry with the provided configuration.
+    Triggers agent reload if callback is set.
+    """
+    try:
+        from api.config_models import MCPServerConfig
+        
+        # Create new server with generated ID
+        new_server = MCPServerConfig(
+            name=config.name,
+            url=config.url,
+            headers=config.headers,
+            is_active=True
+        )
+        
+        store.add_mcp_server(new_server)
+        logger.info(f"Added MCP server: {new_server.name} (id={new_server.id})")
+        
+        # Reload the agent with new MCP config
+        reload_required = False
+        if _reload_agent_callback:
+            try:
+                await _reload_agent_callback()
+                logger.info("Agent reloaded with new MCP server")
+            except Exception as e:
+                logger.error(f"Failed to reload agent: {e}")
+                reload_required = True
+        
+        return ConfigUpdateResponse(
+            status="added",
+            reload_required=reload_required
+        )
+    except Exception as e:
+        logger.error(f"Failed to add MCP server: {e}")
+        raise HTTPException(status_code=500, detail=str(e))
+
+
+@config_router.put("/mcp/{server_id}")
+async def update_mcp_server(
+    server_id: str,
+    updates: MCPServerUpdate,
+    store: ConfigStore = Depends(get_config_store)
+) -> ConfigUpdateResponse:
+    """
+    Update an existing MCP server.
+    
+    Updates the specified MCP server with the provided fields.
+    Triggers agent reload if callback is set.
+    """
+    try:
+        # Build updates dict, excluding None values
+        update_dict = {}
+        if updates.name is not None:
+            update_dict["name"] = updates.name
+        if updates.url is not None:
+            update_dict["url"] = updates.url
+        if updates.headers is not None:
+            update_dict["headers"] = updates.headers
+        if updates.is_active is not None:
+            update_dict["is_active"] = updates.is_active
+        
+        store.update_mcp_server(server_id, update_dict)
+        logger.info(f"Updated MCP server: {server_id}")
+        
+        # Reload the agent with updated MCP config
+        reload_required = False
+        if _reload_agent_callback:
+            try:
+                await _reload_agent_callback()
+                logger.info("Agent reloaded with updated MCP server")
+            except Exception as e:
+                logger.error(f"Failed to reload agent: {e}")
+                reload_required = True
+        
+        return ConfigUpdateResponse(status="updated", reload_required=reload_required)
+    except ValueError as e:
+        raise HTTPException(status_code=404, detail=str(e))
+    except Exception as e:
+        logger.error(f"Failed to update MCP server: {e}")
+        raise HTTPException(status_code=500, detail=str(e))
+
+
+@config_router.delete("/mcp/{server_id}")
+async def delete_mcp_server(
+    server_id: str,
+    store: ConfigStore = Depends(get_config_store)
+) -> ConfigUpdateResponse:
+    """
+    Delete an MCP server.
+    
+    Removes the specified MCP server from the configuration.
+    Triggers agent reload if callback is set.
+    """
+    try:
+        store.remove_mcp_server(server_id)
+        logger.info(f"Deleted MCP server: {server_id}")
+        
+        # Reload the agent with updated MCP config
+        reload_required = False
+        if _reload_agent_callback:
+            try:
+                await _reload_agent_callback()
+                logger.info("Agent reloaded after server deletion")
+            except Exception as e:
+                logger.error(f"Failed to reload agent: {e}")
+                reload_required = True
+        
+        return ConfigUpdateResponse(status="deleted", reload_required=reload_required)
+    except ValueError as e:
+        raise HTTPException(status_code=404, detail=str(e))
+    except Exception as e:
+        logger.error(f"Failed to delete MCP server: {e}")
+        raise HTTPException(status_code=500, detail=str(e))
 
 
 @config_router.post("/reset")

@@ -43,8 +43,8 @@ async def reload_agent() -> None:
     config_store = get_config_store()
     config = config_store.load_config()
     
-    # Create new agent with updated MCP config
-    orders_agent = OrdersAgent(mcp_config=config.mcp)
+    # Create new agent with updated MCP configs (list)
+    orders_agent = OrdersAgent(mcp_configs=config.mcp_servers)
     
     # Update task manager
     if task_manager:
@@ -67,8 +67,8 @@ async def lifespan(app: FastAPI) -> AsyncGenerator[None, None]:
     config_store = get_config_store()
     config = config_store.load_config()
 
-    # Initialize the Orders Agent with MCP config
-    orders_agent = OrdersAgent(mcp_config=config.mcp)
+    # Initialize the Orders Agent with MCP configs (list)
+    orders_agent = OrdersAgent(mcp_configs=config.mcp_servers)
 
     # Initialize Task Manager for A2A
     task_manager = TaskManager(agent=orders_agent)

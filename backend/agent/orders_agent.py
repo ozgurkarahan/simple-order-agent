@@ -57,21 +57,33 @@ class OrdersAgent:
     def __init__(
         self, 
         model: str = "claude-sonnet-4-20250514",
-        mcp_config: MCPServerConfig | None = None
+        mcp_config: MCPServerConfig | None = None,
+        mcp_configs: list[MCPServerConfig] | None = None
     ):
         """
         Initialize the Orders Agent.
 
         Args:
             model: Claude model to use
-            mcp_config: Optional MCP server configuration. If None, uses .mcp.json
+            mcp_config: Optional single MCP server configuration (legacy, for backward compatibility)
+            mcp_configs: Optional list of MCP server configurations
         """
         self.model = model
-        self.mcp_config = mcp_config
+        
+        # Support both single and multiple configs for backward compatibility
+        if mcp_configs is not None:
+            self.mcp_configs = mcp_configs
+        elif mcp_config is not None:
+            self.mcp_configs = [mcp_config]
+        else:
+            self.mcp_configs = []
+        
         self.conversations: dict[str, list[dict]] = {}
 
-        if mcp_config:
-            logger.info(f"Orders Agent initialized with model: {model} using MCP server: {mcp_config.name}")
+        if self.mcp_configs:
+            active_count = sum(1 for c in self.mcp_configs if c.is_active)
+            server_names = [c.name for c in self.mcp_configs if c.is_active]
+            logger.info(f"Orders Agent initialized with model: {model} using {active_count} active MCP server(s): {', '.join(server_names)}")
         else:
             logger.info(f"Orders Agent initialized with model: {model} using .mcp.json config")
 
@@ -85,15 +97,17 @@ class OrdersAgent:
 
     def _build_options(self) -> ClaudeAgentOptions:
         """Build ClaudeAgentOptions with external MCP server configuration."""
-        if self.mcp_config:
-            # Use dynamic MCP configuration
-            mcp_servers = {
-                self.mcp_config.name: {
-                    "type": "http",
-                    "url": self.mcp_config.url,
-                    "headers": self.mcp_config.headers
-                }
-            }
+        if self.mcp_configs:
+            # Use dynamic MCP configuration with multiple servers
+            mcp_servers = {}
+            for config in self.mcp_configs:
+                if config.is_active:  # Only include active servers
+                    mcp_servers[config.name] = {
+                        "type": "http",
+                        "url": config.url,
+                        "headers": config.headers
+                    }
+            
             return ClaudeAgentOptions(
                 model=self.model,
                 system_prompt=SYSTEM_PROMPT,

@@ -2,6 +2,7 @@
 
 from datetime import datetime, timezone
 import re
+import uuid
 
 from pydantic import BaseModel, Field, field_validator
 
@@ -53,6 +54,7 @@ class A2AConfigUpdate(BaseConfigModel):
 class MCPServerConfig(BaseConfigModel):
     """MCP server configuration."""
 
+    id: str = Field(default_factory=lambda: str(uuid.uuid4()))
     name: str = "orders"
     is_active: bool = True
 
@@ -63,11 +65,26 @@ class MCPConfigUpdate(BaseConfigModel):
     name: str
 
 
+class MCPServerAdd(BaseConfigModel):
+    """Request model for adding new MCP server."""
+
+    name: str
+
+
+class MCPServerUpdate(BaseModel):
+    """Request model for updating existing MCP server."""
+
+    name: str | None = None
+    url: str | None = None
+    headers: dict[str, str] | None = None
+    is_active: bool | None = None
+
+
 class AppConfig(BaseModel):
     """Complete application configuration."""
 
     a2a: A2AConfig
-    mcp: MCPServerConfig
+    mcp_servers: list[MCPServerConfig] = Field(default_factory=list)
     updated_at: datetime = Field(default_factory=lambda: datetime.now(timezone.utc))
 
 
