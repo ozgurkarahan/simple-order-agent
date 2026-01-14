@@ -67,19 +67,31 @@ This is a test project for the Claude Agent SDK that connects to an Orders MCP s
 
 ## Development Commands
 
+### Quick Start (Recommended)
+
 ```bash
-# Backend
-cd backend
-python -m venv venv
-source venv/bin/activate
-pip install -r requirements.txt
-uvicorn main:app --reload
+# First time setup
+npm install              # Install concurrently
+cd frontend && npm install && cd ..
+cd backend && cp .env.example .env && cd ..
 
-# Frontend
-cd frontend
-npm install
-npm run dev
+# Run both services
+npm start                # Runs backend + frontend with color-coded output
+```
 
+### Individual Services
+
+```bash
+# Backend only
+npm run backend          # or: cd backend && uvicorn main:app --reload
+
+# Frontend only
+npm run frontend         # or: cd frontend && npm run dev
+```
+
+### Testing
+
+```bash
 # Run tests
 cd backend
 pytest
@@ -87,6 +99,10 @@ pytest
 # Run evals
 cd backend
 pytest tests/evals/
+
+# Run with coverage
+cd backend
+pytest --cov=. --cov-report=html
 ```
 
 ## Environment Variables
@@ -106,6 +122,11 @@ Note: MCP server URL is configured in `backend/.mcp.json`
 
 ## Recent Changes
 
+- **Added Simple Startup Script**: Single `npm start` command runs both services with color-coded output
+  - Uses `concurrently` for parallel execution
+  - Cross-platform compatible (Mac, Linux, Windows)
+  - Direct venv path usage (no manual activation needed)
+  - Root-level `package.json` with convenient scripts
 - Migrated to Claude Agent SDK with external MCP server via `.mcp.json`
 - Removed custom MCP client (SDK handles MCP communication natively)
 - Simplified UI to chat-only interface (removed Analytics and Orders table views)

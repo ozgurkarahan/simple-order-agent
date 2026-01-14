@@ -38,7 +38,37 @@ A **learning project** to explore the integration of a MuleSoft MCP server with 
 - Anthropic API key
 - MCP server credentials
 
-### Backend Setup
+### Simple Startup (Recommended)
+
+Run both backend and frontend with a single command:
+
+```bash
+# First time setup
+npm install              # Install concurrently
+cd frontend && npm install && cd ..  # Or: npm run setup
+
+# Configure backend environment
+cd backend
+cp .env.example .env
+# Edit .env with your API keys
+cd ..
+
+# Run both services
+npm start
+```
+
+Both services will run with color-coded output (green for backend, blue for frontend). Press `Ctrl+C` to stop both.
+
+- Backend: [http://localhost:8000](http://localhost:8000)
+- Frontend: [http://localhost:3001](http://localhost:3001) (or 3000 if available)
+- API Docs: [http://localhost:8000/docs](http://localhost:8000/docs)
+
+### Manual Setup (Alternative)
+
+<details>
+<summary>Click to expand manual setup instructions</summary>
+
+#### Backend Setup
 
 ```bash
 cd backend
@@ -58,7 +88,7 @@ cp .env.example .env
 uvicorn main:app --reload
 ```
 
-### Frontend Setup
+#### Frontend Setup
 
 ```bash
 cd frontend
@@ -71,6 +101,8 @@ npm run dev
 ```
 
 Open [http://localhost:3000](http://localhost:3000) to access the chat interface.
+
+</details>
 
 ## Environment Variables
 
@@ -161,10 +193,23 @@ cd backend
 pytest --cov=. --cov-report=html
 ```
 
+## Available Scripts
+
+From the root directory:
+
+| Command | Description |
+|---------|-------------|
+| `npm start` | Run both backend and frontend (recommended) |
+| `npm run dev` | Alias for `npm start` |
+| `npm run backend` | Run backend only |
+| `npm run frontend` | Run frontend only |
+| `npm run setup` | Install frontend dependencies |
+
 ## Project Structure
 
 ```
 simple-order-agent/
+├── package.json        # Root npm scripts (runs both services)
 ├── claude.md           # Claude context file
 ├── PRD.md              # Product requirements
 ├── SPEC.md             # Technical specification
