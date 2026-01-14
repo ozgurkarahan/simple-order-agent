@@ -2,11 +2,12 @@
 
 import { useState, useRef, useEffect } from "react";
 import { Sparkles } from "lucide-react";
-import { streamChat, type ChatMessage } from "@/lib/api";
+import { streamChat, approvePlan, rejectPlan, pauseTask, resumeTask, cancelTask, type ChatMessage } from "@/lib/api";
 import { cn, formatDate, generateId } from "@/lib/utils";
 import { InputToolbar, type InputToolbarRef } from "./InputToolbar";
 import { ToolAccordion } from "./ToolAccordion";
 import { saveMessages, loadMessages } from "@/lib/conversation-storage";
+import { PlanDisplay, type Plan } from "./PlanDisplay";
 
 interface Message extends ChatMessage {
   id: string;
@@ -28,6 +29,9 @@ interface ChatProps {
 export function Chat({ conversationId, onFirstMessage }: ChatProps) {
   const [messages, setMessages] = useState<Message[]>([]);
   const [isLoading, setIsLoading] = useState(false);
+  const [currentTaskId, setCurrentTaskId] = useState<string | null>(null);
+  const [currentPlan, setCurrentPlan] = useState<Plan | null>(null);
+  const [taskState, setTaskState] = useState<string>('');
   const messagesEndRef = useRef<HTMLDivElement>(null);
   const inputRef = useRef<InputToolbarRef>(null);
   const firstMessageSent = useRef(false);
@@ -56,6 +60,11 @@ export function Chat({ conversationId, onFirstMessage }: ChatProps) {
       setMessages([]);
       firstMessageSent.current = false;
     }
+
+    // Reset plan state when switching conversations
+    setCurrentTaskId(null);
+    setCurrentPlan(null);
+    setTaskState('');
   }, [conversationId]);
 
   // Save messages to localStorage whenever they change
@@ -72,6 +81,56 @@ export function Chat({ conversationId, onFirstMessage }: ChatProps) {
       saveMessages(conversationId, storedMessages);
     }
   }, [messages, conversationId]);
+
+  // Plan control handlers
+  const handleApprovePlan = async () => {
+    if (!currentTaskId) return;
+    try {
+      await approvePlan(currentTaskId);
+      // The status will be updated via SSE events
+    } catch (error) {
+      console.error('Failed to approve plan:', error);
+      // TODO: Show error to user
+    }
+  };
+
+  const handleRejectPlan = async (feedback: string) => {
+    if (!currentTaskId) return;
+    try {
+      await rejectPlan(currentTaskId, feedback);
+      // The agent will generate a new plan, which will come via SSE events
+    } catch (error) {
+      console.error('Failed to reject plan:', error);
+      // TODO: Show error to user
+    }
+  };
+
+  const handlePausePlan = async () => {
+    if (!currentTaskId) return;
+    try {
+      await pauseTask(currentTaskId);
+    } catch (error) {
+      console.error('Failed to pause task:', error);
+    }
+  };
+
+  const handleResumePlan = async () => {
+    if (!currentTaskId) return;
+    try {
+      await resumeTask(currentTaskId);
+    } catch (error) {
+      console.error('Failed to resume task:', error);
+    }
+  };
+
+  const handleCancelPlan = async () => {
+    if (!currentTaskId) return;
+    try {
+      await cancelTask(currentTaskId);
+    } catch (error) {
+      console.error('Failed to cancel task:', error);
+    }
+  };
 
   const handleSubmit = async (text: string) => {
     if (!text.trim() || isLoading) return;
@@ -106,7 +165,38 @@ export function Chat({ conversationId, onFirstMessage }: ChatProps) {
 
     try {
       for await (const event of streamChat(text, conversationId)) {
-        if (event.type === "message" && event.data.content) {
+        if (event.type === "status") {
+          // Handle task status updates and plan generation
+          const statusData = event.data as any;
+
+          // Extract taskId from status event
+          if (statusData.taskId) {
+            setCurrentTaskId(statusData.taskId);
+          }
+
+          // Extract task state
+          if (statusData.status?.state) {
+            const newState = statusData.status.state;
+            setTaskState(newState);
+
+            // Clear plan when task completes, fails, or is canceled
+            if (newState === 'completed' || newState === 'failed' || newState === 'canceled') {
+              setCurrentPlan(null);
+              setCurrentTaskId(null);
+            }
+          }
+
+          // Extract plan if present
+          if (statusData.plan) {
+            setCurrentPlan(statusData.plan);
+          }
+        } else if (event.type === "plan_update") {
+          // Handle real-time plan progress updates
+          const updateData = event.data as any;
+          if (updateData.plan) {
+            setCurrentPlan(updateData.plan);
+          }
+        } else if (event.type === "message" && event.data.content) {
           setMessages((prev) =>
             prev.map((m) =>
               m.id === agentMessageId
@@ -241,6 +331,22 @@ export function Chat({ conversationId, onFirstMessage }: ChatProps) {
               ) : (
                 // Agent message - left aligned, clean styling
                 <div className="max-w-full space-y-3">
+                  {/* Plan display - show when plan exists and is the latest message */}
+                  {currentPlan && message.id === messages[messages.length - 1]?.id && (
+                    <PlanDisplay
+                      plan={currentPlan}
+                      isExecuting={taskState === 'executing'}
+                      onApprove={handleApprovePlan}
+                      onReject={handleRejectPlan}
+                      onPause={handlePausePlan}
+                      onResume={handleResumePlan}
+                      onCancel={handleCancelPlan}
+                      showApprovalButtons={taskState === 'awaiting-approval'}
+                      showExecutionControls={taskState === 'executing' || taskState === 'paused'}
+                      isPaused={taskState === 'paused'}
+                    />
+                  )}
+
                   {/* Tool usage accordion */}
                   {message.toolUse && (
                     <ToolAccordion
@@ -264,7 +370,7 @@ export function Chat({ conversationId, onFirstMessage }: ChatProps) {
                   )}
 
                   {/* Loading indicator when no content yet */}
-                  {message.isStreaming && !message.content && !message.toolUse && (
+                  {message.isStreaming && !message.content && !message.toolUse && !currentPlan && (
                     <div className="flex gap-1.5 py-2">
                       <span className="w-2 h-2 bg-muted-foreground/40 rounded-full typing-dot" />
                       <span className="w-2 h-2 bg-muted-foreground/40 rounded-full typing-dot" />
