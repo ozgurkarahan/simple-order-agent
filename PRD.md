@@ -123,7 +123,7 @@ Currently, the frontend is tightly coupled to the local Orders Agent backend. Us
 
 | Feature | Description |
 |---------|-------------|
-| Agent Card Preview | Fetch and display agent card from configured A2A URL |
+| Agent Card Display | Full agent card display with expandable UI showing skills, capabilities, authentication info, and documentation links |
 | Connection Test | Button to test connectivity before saving |
 | MCP Tools Discovery | Display available tools from configured MCP server |
 

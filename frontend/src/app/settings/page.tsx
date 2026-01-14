@@ -26,7 +26,9 @@ import {
   type AppConfig,
   type A2ATestResponse,
   type MCPTestResponse,
+  type AgentCard,
 } from "@/lib/api";
+import AgentCardDisplay from "@/components/AgentCardDisplay";
 
 interface HeaderEntry {
   key: string;
@@ -135,6 +137,9 @@ export default function SettingsPage() {
   // Test results
   const [a2aTestResult, setA2aTestResult] = useState<A2ATestResponse | null>(null);
   const [mcpTestResult, setMcpTestResult] = useState<MCPTestResponse | null>(null);
+  
+  // Agent card state
+  const [agentCard, setAgentCard] = useState<AgentCard | null>(null);
 
   // Save status
   const [saveStatus, setSaveStatus] = useState<"idle" | "saving" | "saved" | "error">("idle");
@@ -168,7 +173,14 @@ export default function SettingsPage() {
 
   const testA2AMutation = useMutation({
     mutationFn: testA2AConnection,
-    onSuccess: (data) => setA2aTestResult(data),
+    onSuccess: (data) => {
+      setA2aTestResult(data);
+      if (data.success && data.agent_card) {
+        setAgentCard(data.agent_card);
+      } else {
+        setAgentCard(null);
+      }
+    },
   });
 
   const testMCPMutation = useMutation({
@@ -182,11 +194,13 @@ export default function SettingsPage() {
       queryClient.invalidateQueries({ queryKey: ["config"] });
       setA2aTestResult(null);
       setMcpTestResult(null);
+      setAgentCard(null);
     },
   });
 
   const handleTestA2A = () => {
     setA2aTestResult(null);
+    setAgentCard(null);
     testA2AMutation.mutate({ url: a2aUrl, headers: a2aHeaders });
   };
 
@@ -319,6 +333,13 @@ export default function SettingsPage() {
                 </div>
               )}
             </div>
+            
+            {/* Agent Card Display */}
+            {agentCard && (
+              <div className="animate-in fade-in duration-300">
+                <AgentCardDisplay agentCard={agentCard} />
+              </div>
+            )}
           </div>
         </section>
 
