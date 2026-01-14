@@ -245,6 +245,11 @@ simple-order-agent/
 
 ## Recent Changes
 
+- **ClaudeSDKClient Migration**: Improved conversation handling
+  - Migrated from stateless `query()` to stateful `ClaudeSDKClient`
+  - Conversations now properly maintain context across messages
+  - Added conversation cleanup methods for memory management
+  - True multi-turn conversation support with automatic history tracking
 - **Agent Card Display Feature**: Full expandable agent card display in Settings page
   - Shows comprehensive agent information (skills, capabilities, authentication)
   - Collapsible UI with smooth transitions

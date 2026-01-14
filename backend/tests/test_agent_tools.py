@@ -14,17 +14,17 @@ class TestOrdersAgent:
     def agent(self):
         """Create an agent for testing."""
         # Patch the SDK to avoid actual initialization
-        with patch("agent.orders_agent.query"):
+        with patch("agent.orders_agent.ClaudeSDKClient"):
             return OrdersAgent()
 
     def test_init(self, agent):
         """Test agent initialization."""
         assert agent.model == "claude-sonnet-4-20250514"
-        assert agent.conversations == {}
+        assert agent.clients == {}
 
     def test_init_custom_model(self):
         """Test agent initialization with custom model."""
-        with patch("agent.orders_agent.query"):
+        with patch("agent.orders_agent.ClaudeSDKClient"):
             agent = OrdersAgent(model="claude-opus-4-20250514")
             assert agent.model == "claude-opus-4-20250514"
 
@@ -42,24 +42,6 @@ class TestOrdersAgent:
         assert "get-orders-by-customer-id" in SYSTEM_PROMPT
         assert "create-order" in SYSTEM_PROMPT
 
-    def test_get_conversation_new(self, agent):
-        """Test getting a new conversation."""
-        conv = agent._get_conversation("new-conv-id")
-        assert conv == []
-        assert "new-conv-id" in agent.conversations
-
-    def test_get_conversation_existing(self, agent):
-        """Test getting an existing conversation."""
-        agent.conversations["existing-id"] = [{"role": "user", "content": "Hello"}]
-
-        conv = agent._get_conversation("existing-id")
-        assert len(conv) == 1
-
-    def test_get_conversation_none(self, agent):
-        """Test getting conversation with None ID."""
-        conv = agent._get_conversation(None)
-        assert conv == []
-
     def test_build_options(self, agent):
         """Test that build_options returns correct configuration."""
         options = agent._build_options()
@@ -69,6 +51,41 @@ class TestOrdersAgent:
         assert options.setting_sources == ["project"]
         assert options.permission_mode == "bypassPermissions"
         assert options.max_turns == 10
+
+    def test_get_or_create_client_new(self, agent):
+        """Test creating a new client for a conversation."""
+        with patch("agent.orders_agent.ClaudeSDKClient") as mock_client:
+            client = agent._get_or_create_client("new-conv-id")
+            assert "new-conv-id" in agent.clients
+            mock_client.assert_called_once()
+
+    def test_get_or_create_client_existing(self, agent):
+        """Test getting an existing client."""
+        with patch("agent.orders_agent.ClaudeSDKClient") as mock_client:
+            agent._get_or_create_client("existing-id")
+            mock_client.reset_mock()
+            
+            agent._get_or_create_client("existing-id")
+            mock_client.assert_not_called()
+
+    def test_clear_conversation(self, agent):
+        """Test clearing a specific conversation."""
+        with patch("agent.orders_agent.ClaudeSDKClient"):
+            agent._get_or_create_client("conv-1")
+            agent._get_or_create_client("conv-2")
+            
+            agent.clear_conversation("conv-1")
+            assert "conv-1" not in agent.clients
+            assert "conv-2" in agent.clients
+
+    def test_clear_all_conversations(self, agent):
+        """Test clearing all conversations."""
+        with patch("agent.orders_agent.ClaudeSDKClient"):
+            agent._get_or_create_client("conv-1")
+            agent._get_or_create_client("conv-2")
+            
+            agent.clear_all_conversations()
+            assert len(agent.clients) == 0
 
 
 class TestToolDefinitions:
