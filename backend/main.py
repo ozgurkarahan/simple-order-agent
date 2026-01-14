@@ -19,6 +19,8 @@ from a2a import TaskManager, a2a_router, get_agent_card
 from agent import OrdersAgent
 from api import config_router, get_config_store
 from api.config_router import set_reload_agent_callback
+from api.conversation_router import router as conversation_router
+from api.conversation_models import get_conversation_store
 from config import get_settings
 
 # Configure logging
@@ -115,6 +117,7 @@ app.add_middleware(
 # Include routers
 app.include_router(a2a_router)
 app.include_router(config_router)
+app.include_router(conversation_router)
 
 
 # Request/Response models
@@ -157,6 +160,15 @@ async def chat(request: ChatRequest) -> StreamingResponse:
     async def generate():
         """Generate SSE events from agent response."""
         try:
+            conv_store = get_conversation_store()
+            conv_id = request.conversation_id
+            
+            # Track if this is the first message (for title generation)
+            is_first_message = False
+            if conv_id:
+                conv = conv_store.get_conversation(conv_id)
+                is_first_message = conv and conv.message_count == 0
+            
             async for event in orders_agent.chat(
                 message=request.message,
                 conversation_id=request.conversation_id,
@@ -164,6 +176,25 @@ async def chat(request: ChatRequest) -> StreamingResponse:
                 yield f"event: {event['type']}\ndata: {event['data']}\n\n"
 
             yield "event: done\ndata: {}\n\n"
+            
+            # Update conversation metadata after successful chat
+            if conv_id:
+                # Generate title from first message (truncate to 50 chars)
+                if is_first_message:
+                    title = request.message[:50]
+                    if len(request.message) > 50:
+                        title += "..."
+                    conv_store.update_conversation(
+                        conversation_id=conv_id,
+                        title=title,
+                        increment_message_count=True
+                    )
+                else:
+                    # Just increment message count
+                    conv_store.update_conversation(
+                        conversation_id=conv_id,
+                        increment_message_count=True
+                    )
 
         except Exception as e:
             logger.error(f"Chat error: {e}")
