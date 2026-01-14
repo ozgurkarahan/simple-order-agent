@@ -122,6 +122,13 @@ Note: MCP server URL is configured in `backend/.mcp.json`
 
 ## Recent Changes
 
+- **Agent Card Display Feature**: Full expandable agent card display in Settings page
+  - Created `AgentCardDisplay.tsx` component with collapsible UI
+  - Updated TypeScript types for full `AgentCard` structure with authentication and documentation fields
+  - Integrated agent card state management in Settings page
+  - Shows comprehensive agent information: skills, capabilities, authentication, links
+  - Smooth expand/collapse animations with Lucide React icons
+  - Automatically fetches and displays agent card when testing A2A connections
 - **Added Simple Startup Script**: Single `npm start` command runs both services with color-coded output
   - Uses `concurrently` for parallel execution
   - Cross-platform compatible (Mac, Linux, Windows)

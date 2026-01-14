@@ -15,11 +15,17 @@ export interface ChatMessage {
   toolResult?: string;
 }
 
+export interface AuthConfig {
+  type: "none" | "bearer" | "apiKey" | "oauth2";
+  credentialsUrl?: string;
+}
+
 export interface AgentCard {
   name: string;
   description: string;
   version: string;
   url: string;
+  documentationUrl?: string;
   capabilities: {
     streaming: boolean;
     pushNotifications: boolean;
@@ -32,6 +38,9 @@ export interface AgentCard {
     tags: string[];
     examples: string[];
   }>;
+  authentication?: AuthConfig;
+  defaultInputModes?: string[];
+  defaultOutputModes?: string[];
 }
 
 export interface StreamEvent {
@@ -84,11 +93,7 @@ export interface ConnectionTestRequest {
 
 export interface A2ATestResponse {
   success: boolean;
-  agent_card?: {
-    name: string;
-    description?: string;
-    version?: string;
-  };
+  agent_card?: AgentCard;
   error?: string;
 }
 

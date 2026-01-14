@@ -14,6 +14,7 @@ A **learning project** to explore the integration of a MuleSoft MCP server with 
 - **A2A Protocol Support**: Discoverable and callable by other AI agents
 - **MCP Integration**: Connects to external Orders MCP server
 - **Dynamic Configuration**: Configure A2A agents and MCP servers via Settings page
+- **Agent Card Display**: View comprehensive agent details including skills, capabilities, and authentication
 - **Comprehensive Testing**: Unit tests and agent evals included
 - **Claude Desktop UI**: Warm cream theme, serif typography, minimal design inspired by Claude desktop
 - **Collapsible Tool Results**: Accordion-style display for MCP tool outputs with formatted tables
@@ -241,6 +242,14 @@ simple-order-agent/
     │   └── lib/        # Utilities and API client
     └── package.json
 ```
+
+## Recent Changes
+
+- **Agent Card Display Feature**: Full expandable agent card display in Settings page
+  - Shows comprehensive agent information (skills, capabilities, authentication)
+  - Collapsible UI with smooth transitions
+  - Automatically updates when testing A2A connections
+  - Displays skill tags, example queries, and documentation links
 
 ## Example Queries
 

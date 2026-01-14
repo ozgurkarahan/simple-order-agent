@@ -387,7 +387,15 @@ Layout
     │   ├── URLInput (with validation)
     │   ├── HeadersEditor (key-value pairs)
     │   ├── TestConnectionButton
-    │   └── AgentCardPreview (if connected)
+    │   └── AgentCardDisplay (if connected)
+    │       ├── Header (always visible - name, version, description)
+    │       ├── ExpandButton (show/hide details)
+    │       └── ExpandedContent (collapsible)
+    │           ├── Capabilities (streaming, push notifications, state history)
+    │           ├── Skills (with tags and examples)
+    │           ├── Authentication (type and credentials URL)
+    │           ├── Links (agent URL and documentation)
+    │           └── InputOutputModes
     ├── MCPConfigSection
     │   ├── ServerNameInput
     │   ├── URLInput (with validation)
@@ -451,6 +459,14 @@ Layout
 │  │  [+ Add Header]                                     │   │
 │  │                                                     │   │
 │  │  [Test Connection]  ✓ Connected: Orders Agent v1.0 │   │
+│  │                                                     │   │
+│  │  ┌───────────────────────────────────────────────┐ │   │
+│  │  │ 🛡️ Oz's Order Management Agent v1.0.0    [▼] │ │   │
+│  │  │ AI-powered agent for querying and analyzing  │ │   │
+│  │  │ order data.                                   │ │   │
+│  │  │                                               │ │   │
+│  │  │ [Expanded] Skills, Capabilities, Auth, Links │ │   │
+│  │  └───────────────────────────────────────────────┘ │   │
 │  └─────────────────────────────────────────────────────┘   │
 │                                                             │
 │  ┌─────────────────────────────────────────────────────┐   │
@@ -501,8 +517,26 @@ Display examples to help users understand common header patterns:
 1. Page Load → GET /api/config → Populate form
 2. User Edits → Local state updates (no API call)
 3. Test Connection → POST /api/config/a2a/test or /mcp/test
-4. Save → PUT /api/config/a2a and/or PUT /api/config/mcp
-5. Success → Invalidate queries, redirect to chat
+4. Success → Extract agent_card and store in state → Display AgentCardDisplay
+5. Save → PUT /api/config/a2a and/or PUT /api/config/mcp
+6. Success → Invalidate queries, refresh config
+```
+
+##### Agent Card State Management
+
+```typescript
+// State in settings page
+const [agentCard, setAgentCard] = useState<AgentCard | null>(null);
+
+// On successful connection test
+testA2AMutation.onSuccess = (data) => {
+  if (data.success && data.agent_card) {
+    setAgentCard(data.agent_card);  // Full agent card with all fields
+  }
+};
+
+// Clear on error or reset
+setAgentCard(null);
 ```
 
 ---
