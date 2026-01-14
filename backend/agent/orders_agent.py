@@ -159,7 +159,8 @@ class OrdersAgent:
             # ClaudeSDKClient automatically maintains conversation history
             async with client:
                 await client.query(message)
-                async for event in client.receive_response():                    if isinstance(event, AssistantMessage):
+                async for event in client.receive_response():                    
+                    if isinstance(event, AssistantMessage):
                         for block in event.content:
                             if hasattr(block, "text"):
                                 yield {
