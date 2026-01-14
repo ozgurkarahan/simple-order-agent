@@ -570,6 +570,18 @@ class TaskManager:
                 message="All tasks completed successfully",
             )
 
+            # Emit a final summary message to the chat
+            # Use format that frontend expects: {type: "text", content: "..."}
+            summary_text = f"✅ Plan completed successfully!\n\nExecuted {len(task.plan.phases)} phase(s) with all tasks completed."
+            await self._emit_event(
+                task_id,
+                "message",
+                {
+                    "type": "text",
+                    "content": summary_text,
+                },
+            )
+
             await self._emit_event(
                 task_id,
                 "status",
@@ -584,6 +596,21 @@ class TaskManager:
             # Clean up resume event
             if task_id in self._resume_events:
                 del self._resume_events[task_id]
+            
+            # Clean up the agent client for this task's conversation
+            # This ensures proper cleanup after plan execution completes
+            try:
+                # The agent uses "default" conversation ID when none is specified
+                conversation_id = "default"
+                if conversation_id in self.agent.clients:
+                    client = self.agent.clients[conversation_id]
+                    # Manually exit the client context to clean up resources
+                    await client.__aexit__(None, None, None)
+                    # Remove from cache so a fresh client is created for next task
+                    del self.agent.clients[conversation_id]
+                    logger.debug(f"Cleaned up agent client for conversation: {conversation_id}")
+            except Exception as e:
+                logger.warning(f"Error during client cleanup: {e}")
 
     async def _execute_task_item(self, task_id: str, task_item: TaskItem) -> None:
         """
@@ -610,9 +637,12 @@ class TaskManager:
         instruction = f"You are executing a plan. Current task: {task_item.description}\n\nOriginal request: {user_message}\n\nExecute this task and provide results."
 
         # Execute with agent
+        # Use use_context_manager=False to keep client alive across task items
         response_parts: list[Part] = []
 
-        async for event in self.agent.chat(instruction):
+        async for event in self.agent.chat(instruction, use_context_manager=False):
+            # Get the top-level event type
+            event_type = event.get("type")
             event_data = json.loads(event["data"])
 
             if event_data.get("type") == "text":
@@ -623,16 +653,13 @@ class TaskManager:
                     )
                 )
 
-                # Emit message event
+                # Emit message event - use format frontend expects: {type: "text", content: "..."}
                 await self._emit_event(
                     task_id,
                     "message",
                     {
-                        "taskId": task_id,
-                        "message": {
-                            "role": "agent",
-                            "parts": [{"type": "text", "text": event_data["content"]}],
-                        },
+                        "type": "text",
+                        "content": event_data["content"],
                     },
                 )
 
@@ -648,8 +675,20 @@ class TaskManager:
                     },
                 )
 
-            elif event_data.get("type") == "tool_result":
-                # Create an artifact for tool results
+            elif event_type == "tool_result":  # Check top-level type for tool_result
+                tool_result_text = event_data.get("result", "")
+                
+                # Emit tool_result event for frontend to display
+                await self._emit_event(
+                    task_id,
+                    "tool_result",  # Frontend expects "tool_result" not "artifact"
+                    {
+                        "taskId": task_id,
+                        "result": tool_result_text,
+                    },
+                )
+                
+                # Also create an artifact for storage
                 artifact = Artifact(
                     id=self._generate_artifact_id(),
                     name=f"Result: {task_item.description}",
@@ -658,7 +697,7 @@ class TaskManager:
                     parts=[
                         Part(
                             type="text",
-                            text=event_data.get("result", ""),
+                            text=tool_result_text,
                         )
                     ],
                 )
@@ -666,17 +705,6 @@ class TaskManager:
                 if task.artifacts is None:
                     task.artifacts = []
                 task.artifacts.append(artifact)
-
-                # Emit artifact event
-                await self._emit_event(
-                    task_id,
-                    "artifact",
-                    TaskStatusUpdate(
-                        task_id=task_id,
-                        status=task.status,
-                        artifact=artifact,
-                    ),
-                )
 
         # Add agent response to history
         if response_parts:
