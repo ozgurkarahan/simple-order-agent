@@ -1,5 +1,6 @@
 """Configuration API router for Oz's Order Management Agent."""
 
+import json
 import logging
 from typing import Callable
 
@@ -126,47 +127,217 @@ async def test_a2a_connection(request: ConnectionTestRequest) -> A2ATestResponse
         return A2ATestResponse(success=False, error=str(e))
 
 
+async def _try_mcp_post_protocol(
+    client: httpx.AsyncClient, 
+    url: str, 
+    headers: dict[str, str]
+) -> MCPTestResponse | None:
+    """
+    Try HTTP MCP protocol (JSON-RPC 2.0) with POST request.
+    
+    Returns MCPTestResponse if successful, None if should try other methods.
+    """
+    try:
+        # HTTP MCP protocol uses JSON-RPC 2.0
+        # For connection testing, use 'initialize' which is always supported
+        mcp_request = {
+            "jsonrpc": "2.0",
+            "method": "initialize",
+            "params": {
+                "protocolVersion": "2024-11-05",
+                "capabilities": {},
+                "clientInfo": {"name": "mcp-connection-test", "version": "1.0.0"}
+            },
+            "id": 1
+        }
+        
+        # Ensure Accept header is set for HTTP MCP protocol
+        # Some MCP servers require both application/json and text/event-stream
+        mcp_headers = dict(headers)
+        if "Accept" not in mcp_headers and "accept" not in mcp_headers:
+            mcp_headers["Accept"] = "application/json, text/event-stream"
+        
+        logger.debug(f"Trying POST to {url.rstrip('/')} with headers: {mcp_headers}")
+        
+        # Use streaming mode for SSE responses
+        async with client.stream(
+            "POST",
+            url.rstrip('/'),
+            json=mcp_request,
+            headers=mcp_headers,
+            timeout=CONNECTION_TIMEOUT
+        ) as response:
+            logger.debug(f"POST response status: {response.status_code}, content-type: {response.headers.get('content-type')}")
+            
+            if response.status_code != 200:
+                return None
+            
+            # Check if it's a streaming response (SSE)
+            content_type = response.headers.get("content-type", "")
+            
+            if "text/event-stream" in content_type:
+                # Handle SSE response - read first few events
+                buffer = b""
+                lines = []
+                
+                # Read chunks from the stream
+                async for chunk in response.aiter_bytes():
+                    buffer += chunk
+                    # Stop after reading enough data or timeout
+                    if len(buffer) > 5000:  # Limit to 5KB for connection test
+                        break
+                
+                # Decode and split into lines
+                try:
+                    text = buffer.decode('utf-8')
+                    lines = text.split('\n')
+                except UnicodeDecodeError:
+                    logger.debug("Failed to decode SSE response")
+                    return MCPTestResponse(success=True, tools=[], error="Connected but response not readable")
+                
+                logger.debug(f"Received {len(lines)} SSE lines, first few: {lines[:5]}")
+                
+                # Try to parse response from SSE data
+                # Format: "event: message" followed by "data: {json}"
+                for i, line in enumerate(lines):
+                    line = line.strip()
+                    if line.startswith("data: "):
+                        try:
+                            data = json.loads(line[6:])  # Remove "data: " prefix
+                            logger.debug(f"Parsed SSE data: {data}")
+                            
+                            # Check if it's a successful response
+                            if "result" in data:
+                                result = data["result"]
+                                # For initialize response, check capabilities
+                                if isinstance(result, dict) and "capabilities" in result:
+                                    # Extract tools info from capabilities
+                                    caps = result.get("capabilities", {})
+                                    tools_cap = caps.get("tools", {})
+                                    server_info = result.get("serverInfo", {})
+                                    server_name = server_info.get("name", "Unknown MCP Server")
+                                    
+                                    # Connection successful, return minimal info
+                                    # (tools list requires a stateful session, so we just confirm connection)
+                                    return MCPTestResponse(
+                                        success=True,
+                                        tools=[],
+                                        error=f"Connected to {server_name} (tools available via stateful session)"
+                                    )
+                                # Handle tools/list response if it ever works
+                                elif isinstance(result, dict) and "tools" in result:
+                                    tools_data = result.get("tools", [])
+                                    tools = [t.get("name", str(t)) for t in tools_data if isinstance(t, dict)]
+                                    return MCPTestResponse(success=True, tools=tools)
+                            # Handle error responses
+                            elif "error" in data:
+                                error_msg = data["error"].get("message", str(data["error"]))
+                                logger.debug(f"MCP server returned error: {error_msg}")
+                                return None
+                        except json.JSONDecodeError as e:
+                            logger.debug(f"Failed to parse SSE line: {line[:100]}, error: {e}")
+                            continue
+                
+                # If we got here, no valid response found
+                return MCPTestResponse(success=True, tools=[], error="Connected but response format not recognized")
+            else:
+                # Regular JSON response
+                data = await response.aread()
+                json_data = json.loads(data)
+                logger.debug(f"Received JSON response: {json_data}")
+                
+                # Parse JSON-RPC response
+                if "result" in json_data and isinstance(json_data["result"], dict):
+                    tools_data = json_data["result"].get("tools", [])
+                    if isinstance(tools_data, list):
+                        tools = [t.get("name", str(t)) for t in tools_data if isinstance(t, dict)]
+                        return MCPTestResponse(success=True, tools=tools)
+                # Also handle direct tools array in result
+                elif "result" in json_data and isinstance(json_data["result"], list):
+                    tools = [t.get("name", str(t)) for t in json_data["result"] if isinstance(t, dict)]
+                    return MCPTestResponse(success=True, tools=tools)
+                # Handle error responses
+                elif "error" in json_data:
+                    logger.debug(f"MCP server returned error: {json_data['error']}")
+                    return None
+        
+        return None
+    except Exception as e:
+        logger.debug(f"HTTP MCP protocol attempt failed: {e}")
+        return None
+
+
+async def _try_rest_get_endpoints(
+    client: httpx.AsyncClient,
+    url: str,
+    headers: dict[str, str]
+) -> MCPTestResponse | None:
+    """
+    Try REST-style GET endpoints for tools listing.
+    
+    Returns MCPTestResponse if successful, None if should try other methods.
+    """
+    # MCP servers expose tools at various endpoints
+    # Try common patterns
+    tools_endpoints = [
+        f"{url.rstrip('/')}/tools",
+        f"{url.rstrip('/')}/mcp/tools",
+        url.rstrip('/'),  # Some MCP servers respond with capabilities at root
+    ]
+    
+    for endpoint in tools_endpoints:
+        try:
+            response = await client.get(endpoint, headers=headers)
+            if response.status_code == 200:
+                data = response.json()
+                # Try to extract tools from various response formats
+                if isinstance(data, list):
+                    tools = [t.get('name', str(t)) for t in data]
+                elif isinstance(data, dict):
+                    if 'tools' in data:
+                        tools = [t.get('name', str(t)) for t in data['tools']]
+                    elif 'capabilities' in data and 'tools' in data['capabilities']:
+                        tools = list(data['capabilities']['tools'].keys())
+                    else:
+                        continue
+                else:
+                    continue
+                
+                return MCPTestResponse(success=True, tools=tools)
+            elif response.status_code == 405:
+                # Method not allowed - this is a POST-only endpoint
+                logger.debug(f"GET {endpoint} returned 405 - server requires POST")
+                return None  # Signal to try POST protocol
+        except Exception as e:
+            logger.debug(f"GET {endpoint} failed: {e}")
+            continue
+    
+    return None
+
+
 @config_router.post("/mcp/test")
 async def test_mcp_connection(request: ConnectionTestRequest) -> MCPTestResponse:
     """
     Test connection to an MCP server.
     
-    Attempts to list available tools from the MCP server.
+    Supports both HTTP MCP protocol (POST/JSON-RPC 2.0) and REST-style GET endpoints.
     Returns the tools list on success, or an error message on failure.
     """
-    # MCP servers expose tools at various endpoints
-    # Try common patterns
-    tools_endpoints = [
-        f"{request.url.rstrip('/')}/tools",
-        f"{request.url.rstrip('/')}/mcp/tools",
-        request.url.rstrip('/'),  # Some MCP servers respond with capabilities at root
-    ]
-    
     try:
         async with httpx.AsyncClient(timeout=CONNECTION_TIMEOUT) as client:
-            for endpoint in tools_endpoints:
-                try:
-                    response = await client.get(endpoint, headers=request.headers)
-                    if response.status_code == 200:
-                        data = response.json()
-                        # Try to extract tools from various response formats
-                        if isinstance(data, list):
-                            tools = [t.get('name', str(t)) for t in data]
-                        elif isinstance(data, dict):
-                            if 'tools' in data:
-                                tools = [t.get('name', str(t)) for t in data['tools']]
-                            elif 'capabilities' in data and 'tools' in data['capabilities']:
-                                tools = list(data['capabilities']['tools'].keys())
-                            else:
-                                continue
-                        else:
-                            continue
-                        
-                        return MCPTestResponse(success=True, tools=tools)
-                except Exception:
-                    continue
+            # 1. First, try HTTP MCP protocol (POST with JSON-RPC)
+            # This is the standard for modern MCP servers
+            result = await _try_mcp_post_protocol(client, request.url, request.headers)
+            if result:
+                return result
             
-            # If none of the endpoints worked, try a simple connectivity check
+            # 2. Try REST-style GET endpoints
+            # For backward compatibility with REST-style MCP servers
+            result = await _try_rest_get_endpoints(client, request.url, request.headers)
+            if result:
+                return result
+            
+            # 3. If none of the endpoints worked, try a simple connectivity check
             response = await client.get(request.url.rstrip('/'), headers=request.headers)
             if response.status_code in (200, 404):
                 # Server is reachable but tools endpoint not found
@@ -174,6 +345,23 @@ async def test_mcp_connection(request: ConnectionTestRequest) -> MCPTestResponse
                     success=True, 
                     tools=[],
                     error="Server reachable but tools endpoint not found"
+                )
+            elif response.status_code == 405:
+                # Server returned 405 on GET, try POST one more time with different payload
+                response = await client.post(
+                    request.url.rstrip('/'),
+                    json={"method": "tools/list"},
+                    headers=request.headers
+                )
+                if response.status_code == 200:
+                    return MCPTestResponse(
+                        success=True,
+                        tools=[],
+                        error="Server responded but tools format not recognized"
+                    )
+                return MCPTestResponse(
+                    success=False,
+                    error=f"HTTP 405 - Server requires POST but protocol not recognized"
                 )
             else:
                 return MCPTestResponse(
