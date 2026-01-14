@@ -1,0 +1,15 @@
+{
+  "name": "oz-order-agent",
+  "version": "1.0.0",
+  "description": "Oz's Order Management Agent - Full Stack Startup",
+  "scripts": {
+    "start": "concurrently -n \"backend,frontend\" -c \"green,blue\" \"npm run backend\" \"npm run frontend\"",
+    "dev": "npm start",
+    "backend": "cd backend && ./venv/bin/uvicorn main:app --reload",
+    "frontend": "cd frontend && npm run dev",
+    "setup": "cd frontend && npm install"
+  },
+  "devDependencies": {
+    "concurrently": "^8.2.2"
+  }
+}
